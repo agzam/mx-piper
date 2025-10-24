@@ -1,0 +1,295 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+VERSION="0.1.0"
+CHUNK_SIZE=100
+
+usage() {
+  cat << EOF
+mx-piper v${VERSION} - Pipe content between terminal and Emacs buffers
+
+USAGE:
+  # Write to Emacs (from stdin)
+  cat file.txt | mx-piper [OPTIONS] [BUFFER-NAME]
+  
+  # Read from Emacs (to stdout)
+  mx-piper --from BUFFER-NAME [OPTIONS]
+  mx-piper -f BUFFER-NAME [OPTIONS]
+
+OPTIONS:
+  -f, --from BUFFER     Read from buffer (name or regex) and output to stdout
+  -a, --append          Append to buffer instead of replacing content
+  -F, --force           Overwrite existing buffer (skip conflict resolution)
+  -h, --help            Show this help message
+  -v, --version         Show version
+
+EXAMPLES:
+  # Pipe command output to new/generated buffer
+  tail -f app.log | mx-piper
+  
+  # Pipe to specific buffer
+  cat data.txt | mx-piper "my-buffer"
+  
+  # Pipe to first matching buffer (regex)
+  echo "data" | mx-piper "mybuf.*"
+  
+  # Append to buffer
+  echo "more data" | mx-piper --append "my-buffer"
+  
+  # Read buffer content to stdout
+  mx-piper --from "my-buffer"
+  
+  # Pipe buffer content to another command
+  mx-piper --from "my-buffer" | grep error
+  
+  # Use regex to match buffer
+  mx-piper -f "\\*scratch\\*" | wc -l
+
+NOTES:
+  - Buffer names support regex patterns for matching
+  - Auto-generates buffer names like "*Piper 1*" when none specified
+  - Hook: Define 'mx-piper-buffer-hook' in Emacs to run on buffer creation
+  - Requires emacsclient (Emacs daemon must be running)
+
+EOF
+  exit 0
+}
+
+die() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+check_emacsclient() {
+  if ! command -v emacsclient &> /dev/null; then
+    die "emacsclient not found. Please install Emacs."
+  fi
+  
+  if ! emacsclient --eval "t" &> /dev/null; then
+    die "Cannot connect to Emacs server. Start Emacs daemon with: emacs --daemon"
+  fi
+}
+
+# Escape string for elisp (using base64 to avoid escaping hell)
+encode_for_elisp() {
+  base64 | tr -d '\n'
+}
+
+# Find buffer by name or regex pattern (returns buffer name, not object)
+find_buffer() {
+  local pattern="$1"
+  emacsclient --eval "(let ((buf (or (get-buffer \"$pattern\")
+                                      (car (seq-filter (lambda (b)
+                                                        (string-match-p \"$pattern\" (buffer-name b)))
+                                                      (buffer-list))))))
+                        (when buf (buffer-name buf)))" 2>/dev/null | sed 's/"//g' | grep -v '^nil$' || echo ""
+}
+
+# Generate unique buffer name
+generate_buffer_name() {
+  local base="*Piper"
+  local num=1
+  local name
+  
+  while true; do
+    name="$base $num*"
+    if ! emacsclient --eval "(buffer-live-p (get-buffer \"$name\"))" 2>/dev/null | grep -q 't'; then
+      echo "$name"
+      return
+    fi
+    ((num++))
+  done
+}
+
+# Resolve buffer name conflicts
+resolve_buffer_name() {
+  local requested="$1"
+  local force="$2"
+  
+  # Check if buffer exists
+  local existing
+  existing=$(find_buffer "$requested")
+  
+  if [ -z "$existing" ]; then
+    # No conflict
+    echo "$requested"
+    return
+  fi
+  
+  if [ "$force" = "true" ]; then
+    # Force overwrite
+    echo "$existing"
+    return
+  fi
+  
+  # Generate unique name with suffix
+  local base="$requested"
+  local num=2
+  local candidate
+  
+  while true; do
+    candidate="${base}<${num}>"
+    if ! emacsclient --eval "(buffer-live-p (get-buffer \"$candidate\"))" 2>/dev/null | grep -q 't'; then
+      echo "$candidate"
+      return
+    fi
+    num=$((num + 1))
+  done
+}
+
+# Read mode: output buffer content to stdout
+read_mode() {
+  local pattern="$1"
+  
+  check_emacsclient
+  
+  local buffer
+  buffer=$(find_buffer "$pattern")
+  
+  if [ -z "$buffer" ]; then
+    die "No buffer matching '$pattern' found"
+  fi
+  
+  # Get buffer content and decode from base64
+  emacsclient --eval "(with-current-buffer \"$buffer\"
+    (base64-encode-string (buffer-string) t))" 2>/dev/null | sed 's/^"//; s/"$//' | base64 -d
+}
+
+# Write mode: pipe stdin to buffer
+write_mode() {
+  local buffer_pattern="$1"
+  local append="$2"
+  local force="$3"
+  
+  check_emacsclient
+  
+  local buffer_name
+  if [ -z "$buffer_pattern" ]; then
+    buffer_name=$(generate_buffer_name)
+  else
+    # Try to find existing buffer if it's a pattern
+    local existing
+    existing=$(find_buffer "$buffer_pattern")
+    
+    if [ -n "$existing" ]; then
+      if [ "$force" = "true" ] || [ "$append" = "true" ]; then
+        # Use existing buffer if forcing or appending
+        buffer_name="$existing"
+      else
+        # Create new buffer with suffix to avoid conflict
+        buffer_name=$(resolve_buffer_name "$buffer_pattern" "$force")
+      fi
+    else
+      buffer_name="$buffer_pattern"
+    fi
+  fi
+  
+  # Create/prepare buffer
+  if [ "$append" = "true" ]; then
+    emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
+      (goto-char (point-max))
+      nil)" > /dev/null
+  else
+    emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
+      (erase-buffer)
+      nil)" > /dev/null
+  fi
+  
+  # Display buffer
+  emacsclient --eval "(display-buffer \"$buffer_name\")" > /dev/null
+  
+  # Stream content in chunks
+  local buffer=""
+  local count=0
+  
+  while IFS= read -r line; do
+    buffer+="$line"$'\n'
+    ((count++))
+    echo "$line"  # Pass through to stdout
+    
+    if ((count >= CHUNK_SIZE)); then
+      local encoded
+      encoded=$(printf '%s' "$buffer" | encode_for_elisp)
+      emacsclient --eval "(with-current-buffer \"$buffer_name\"
+        (goto-char (point-max))
+        (insert (base64-decode-string \"$encoded\")))" > /dev/null &
+      buffer=""
+      count=0
+    fi
+  done
+  
+  # Flush remaining buffer
+  if [ -n "$buffer" ]; then
+    local encoded
+    encoded=$(printf '%s' "$buffer" | encode_for_elisp)
+    emacsclient --eval "(with-current-buffer \"$buffer_name\"
+      (goto-char (point-max))
+      (insert (base64-decode-string \"$encoded\")))" > /dev/null
+  fi
+  
+  # Run hook
+  emacsclient --eval "(with-current-buffer \"$buffer_name\"
+    (when (boundp 'mx-piper-buffer-hook)
+      (run-hook-with-args 'mx-piper-buffer-hook \"$buffer_name\")))" > /dev/null
+}
+
+main() {
+  local mode="write"
+  local buffer_pattern=""
+  local append="false"
+  local force="false"
+  
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -h|--help)
+        usage
+        ;;
+      -v|--version)
+        echo "mx-piper v${VERSION}"
+        exit 0
+        ;;
+      -f|--from)
+        mode="read"
+        shift
+        buffer_pattern="$1"
+        ;;
+      -a|--append)
+        append="true"
+        ;;
+      -F|--force)
+        force="true"
+        ;;
+      -*)
+        die "Unknown option: $1"
+        ;;
+      *)
+        buffer_pattern="$1"
+        ;;
+    esac
+    shift
+  done
+  
+  # Determine mode if not explicitly set
+  if [ "$mode" = "write" ] && [ -t 0 ]; then
+    # No stdin and no --from flag, but buffer pattern given
+    if [ -n "$buffer_pattern" ]; then
+      mode="read"
+    else
+      die "No input provided. Use --help for usage."
+    fi
+  fi
+  
+  # Execute mode
+  if [ "$mode" = "read" ]; then
+    if [ -z "$buffer_pattern" ]; then
+      die "Buffer name or pattern required for reading. Use: mx-piper --from BUFFER"
+    fi
+    read_mode "$buffer_pattern"
+  else
+    write_mode "$buffer_pattern" "$append" "$force"
+  fi
+}
+
+main "$@"
