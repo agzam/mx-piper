@@ -1,0 +1,159 @@
+#+TITLE: mx-piper
+#+AUTHOR: Ag Ibragimov
+#+DATE: 2025
+[[https://github.com/agzam/mx-piper/actions/workflows/test.yml][https://github.com/agzam/mx-piper/actions/workflows/test.yml/badge.svg]]
+
+Pipe content between your terminal and Emacs buffers - seamlessly bridge your command-line workflows with your editor.
+
+* What?
+
+~mx-piper~ is a shell script that acts as a bridge between Unix pipes and Emacs buffers. It supports:
+
+- *Write mode*: Pipe stdin to Emacs buffers (creates new or appends to existing)
+- *Read mode*: Output buffer content to stdout for piping
+- *Streaming*: Real-time content updates with chunked processing
+- *Buffer matching*: Use exact names or regex patterns to find buffers
+- *Auto-generation*: Creates ~*Piper 1*~, ~*Piper 2*~, etc. when no name specified
+- *Pass-through*: Acts like ~tee~ - content flows through to stdout
+- *Conflict handling*: Avoids overwriting buffers unless forced
+
+The script works with both bash and zsh, handles special characters properly, and includes comprehensive error handling.
+
+* Why?
+
+- Pipe command output directly into Emacs buffers for comfortable viewing
+- Stream logs in real-time to watch them in your editor
+- Extract buffer content from Emacs and pipe it to terminal commands
+
+*** Did you know?
+
+Emacs has piping in/out buffers in Eshell! You can pipe content in and out of buffers like this:
+
+#+begin_src shell
+# Pipe command output to a buffer
+cat file.txt > #<buffer some-buffer>
+
+# Read from a buffer
+grep "error" < #<buffer *Messages*>
+
+# Combine both
+cat #<buffer *scratch*> > #<buffer output>
+#+end_src
+
+Incredibly powerful, but it only works *inside* Eshell - you can't use it in external terminal. ~mx-piper~ brings this same workflow to your regular shell, letting you pipe between *any* terminal and Emacs. Think of it as Eshell's buffer redirection for the rest of your Unix environment.
+
+* How?
+
+** Requirements
+
+- Emacs with ~emacsclient~ (Emacs daemon must be running)
+- bash or zsh
+- Standard Unix utilities (~base64~, ~grep~, ~sed~)
+
+** Installation
+
+ #+begin_src shell
+ curl -fsSL https://raw.githubusercontent.com/agzam/mx-piper/main/mx-piper -o ~/.local/bin/mx-piper && chmod +x ~/.local/bin/mx-piper
+  #+end_src
+
+Make sure Emacs daemon is running and emacsclient works!
+
+** Usage
+
+*** Pipe command output into Emacs
+
+#+begin_src shell
+# Pipe to a named buffer
+cat file.txt | mx-piper "my-buffer"
+
+# Pipe to auto-generated buffer (*Piper 1*, *Piper 2*, etc.)
+tail -f /var/log/app.log | mx-piper
+
+# Append to existing buffer
+echo "more content" | mx-piper --append "my-buffer"
+echo "more content" | mx-piper -a "my-buffer"
+
+# Match buffer by regex
+echo "data" | mx-piper "mybuf.*"
+
+# Force overwrite existing buffer
+cat new.txt | mx-piper --force "my-buffer"
+cat new.txt | mx-piper -F "my-buffer"
+#+end_src
+
+*** Extract buffer content and pipe to commands
+
+#+begin_src shell
+# Output buffer to stdout
+mx-piper --from "my-buffer"
+mx-piper -f "my-buffer"
+
+# Pipe buffer to commands
+mx-piper --from "*Messages*" | grep error
+mx-piper -f ".*scratch.*" | wc -l
+
+# Use in command chains
+mx-piper -f "my-buffer" | sort | uniq | less
+#+end_src
+
+*** Pass-through behavior
+
+Content flows through to stdout, so you can continue piping:
+
+#+begin_src shell
+# Capture to buffer AND pass through
+cat data.txt | mx-piper "backup" | grep important | mx-piper "filtered"
+#+end_src
+
+*** Process substitution
+
+Works naturally with process substitution for commands expecting files:
+
+#+begin_src shell
+# Compare two buffers
+diff <(mx-piper -f "version-1") <(mx-piper -f "version-2")
+
+# Use buffer as input file
+jq . <(mx-piper -f "*json-data*")
+#+end_src
+
+** Emacs Hook
+
+You can define a hook in your Emacs config to run custom logic when buffers are created:
+
+#+begin_src emacs-lisp
+(defun my-piper-hook (buffer-name)
+  "Custom logic when mx-piper creates a buffer."
+  (with-current-buffer buffer-name
+    ;; Auto-enable certain modes, format content, etc.
+    (when (string-match ".*\\.json.*" buffer-name)
+      (json-mode)
+      (json-pretty-print-buffer))))
+
+(setq mx-piper-buffer-hook #'my-piper-hook)
+#+end_src
+
+** Examples
+
+#+begin_src shell
+# Watch build logs in Emacs
+npm run build | mx-piper "build-logs"
+
+# Capture git diff
+git diff | mx-piper "review"
+
+# Send curl output to Emacs for inspection
+curl -s https://api.example.com/data | mx-piper "api-response"
+
+# Extract TODO items from buffer
+mx-piper -f "*scratch*" | grep TODO > todos.txt
+
+# Pipe multiple buffers together
+cat <(mx-piper -f "header") <(mx-piper -f "body") | mail -s "Report" user@example.com
+#+end_src
+
+* License
+
+Copyright © 2025 Ag Ibragimov <agzam.ibragimov@gmail.com>
+
+Licensed under the MIT License. See [[file:LICENSE][LICENSE]] file for details.

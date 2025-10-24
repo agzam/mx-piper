@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Test suite for mx-piper
-# Run this manually: ./test-mx-piper.sh
+# Copyright (c) 2025 Ag Ibragimov <agzam.ibragimov@gmail.com>
+# Licensed under the MIT License. See LICENSE file for details.
 
 set -euo pipefail
 
