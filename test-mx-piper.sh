@@ -3,7 +3,10 @@
 # Test suite for mx-piper
 # Run this manually: ./test-mx-piper.sh
 
-set -eu
+set -euo pipefail
+
+# Trap errors and show which line failed
+trap 'echo "Error on line $LINENO"' ERR
 
 SCRIPT="./mx-piper"
 GREEN='\033[0;32m'
