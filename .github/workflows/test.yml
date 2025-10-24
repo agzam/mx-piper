@@ -1,0 +1,40 @@
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        emacs-version: ['29.4', '30.1']
+        shell: ['bash', 'zsh']
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs-version }}
+
+      - name: Install zsh
+        if: matrix.shell == 'zsh'
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Start Emacs daemon
+        run: |
+          emacs --daemon
+          # Wait for daemon to be ready
+          timeout 10 bash -c 'until emacsclient --eval "t" 2>/dev/null; do sleep 0.5; done'
+
+      - name: Run tests with ${{ matrix.shell }}
+        shell: ${{ matrix.shell }} {0}
+        run: |
+          # For zsh, we need to set up basic options
+          if [ "${{ matrix.shell }}" = "zsh" ]; then
+            setopt SH_WORD_SPLIT
+          fi
+          ./test-mx-piper.sh
+
+      - name: Stop Emacs daemon
+        if: always()
+        run: emacsclient --eval "(kill-emacs)" || true
