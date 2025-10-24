@@ -17,9 +17,18 @@ jobs:
         with:
           version: ${{ matrix.emacs-version }}
 
+      - name: Cache apt packages
+        if: matrix.shell == 'zsh'
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-zsh
+
       - name: Install zsh
         if: matrix.shell == 'zsh'
-        run: sudo apt-get update && sudo apt-get install -y zsh
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
 
       - name: Start Emacs daemon
         run: |
