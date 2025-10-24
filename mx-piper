@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# mx-piper - Pipe content between terminal and Emacs buffers
+# Copyright (c) 2025 Ag Ibragimov <agzam.ibragimov@gmail.com>
+# Licensed under the MIT License. See LICENSE file for details.
+
 set -euo pipefail
 
 VERSION="0.1.0"
