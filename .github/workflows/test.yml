@@ -27,13 +27,12 @@ jobs:
           timeout 10 bash -c 'until emacsclient --eval "t" 2>/dev/null; do sleep 0.5; done'
 
       - name: Run tests with ${{ matrix.shell }}
-        shell: ${{ matrix.shell }} {0}
         run: |
-          # For zsh, we need to set up basic options
           if [ "${{ matrix.shell }}" = "zsh" ]; then
-            setopt SH_WORD_SPLIT
+            zsh -c 'setopt SH_WORD_SPLIT && ./test-mx-piper.sh'
+          else
+            bash ./test-mx-piper.sh
           fi
-          ./test-mx-piper.sh
 
       - name: Stop Emacs daemon
         if: always()
