@@ -12,20 +12,27 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
+      - name: Cache Emacs
+        uses: actions/cache@v4
+        with:
+          path: ~/.emacs.d
+          key: ${{ runner.os }}-emacs-${{ matrix.emacs-version }}
+
       - name: Install Emacs
         uses: purcell/setup-emacs@master
         with:
           version: ${{ matrix.emacs-version }}
 
-      - name: Cache apt packages
+      - name: Cache zsh
         if: matrix.shell == 'zsh'
+        id: cache-zsh
         uses: actions/cache@v4
         with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-apt-zsh
+          path: /usr/bin/zsh
+          key: ${{ runner.os }}-zsh
 
       - name: Install zsh
-        if: matrix.shell == 'zsh'
+        if: matrix.shell == 'zsh' && steps.cache-zsh.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
