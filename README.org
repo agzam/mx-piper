@@ -27,38 +27,62 @@ The script works with both bash and zsh, handles special characters properly, an
 
 *** Did you know?
 
-Emacs has piping in/out buffers in Eshell! You can pipe content in and out of buffers like this:
+Emacs has piping in/out buffers in Eshell! You can pipe content into a buffer like this:
 
-#+begin_src shell
-# Pipe command output to a buffer
-cat file.txt > #<buffer some-buffer>
+#+begin_src emacs-lisp
+;; Pipe command output to a buffer
+;; You can press <C-c M-b> to pick a buffer instead of typing it
 
-# Read from a buffer
-grep "error" < #<buffer *Messages*>
-
-# Combine both
-cat #<buffer *scratch*> > #<buffer output>
+cat file.txt > #<buffer some-buffer> 
 #+end_src
 
-Incredibly powerful, but it only works *inside* Eshell - you can't use it in external terminal. ~mx-piper~ brings this same workflow to your regular shell, letting you pipe between *any* terminal and Emacs. Think of it as Eshell's buffer redirection for the rest of your Unix environment.
+Unfortunately, Eshell doesn't support input redirection, so reading from a buffer ain't so straightforward, yet still possible. You just need to create a custom eshell command, e.g.:
+
+#+begin_src emacs-lisp
+;; note the eshell/ prefix
+(defun eshell/b (buf-or-regexp)
+  "Output buffer content of buffer matching BUF-OR-REGEXP."
+  (let ((buf (if (bufferp buf-or-regexp)
+                 buf-or-regexp
+               (cl-loop for b in (buffer-list)
+                        thereis (and (string-match-p
+                                      buf-or-regexp (buffer-name b))
+                                     b)))))
+    (when buf
+      (with-current-buffer buf
+        (buffer-substring-no-properties (point-min) (point-max))))))
+#+end_src
+
+And then we can use it in Eshell:
+
+#+begin_src emacs-lisp
+;; Press <C-c M-b> to pick a buffer instead of typing it
+
+b #<buffer README.org> | rg "error"
+#+end_src
+
+Incredibly powerful, but this only works *inside* Eshell - you cannot use it in an external terminal. ~mx-piper~ brings this same workflow to your regular shell, letting you pipe between *any* terminal and Emacs. 
 
 * How?
 
-** Requirements
+** Make sure you have:
 
 - Emacs with ~emacsclient~ (Emacs daemon must be running)
 - bash or zsh
 - Standard Unix utilities (~base64~, ~grep~, ~sed~)
 
-** Installation
+** Install
 
+Download and put it somewhere in the $PATH
  #+begin_src shell
- curl -fsSL https://raw.githubusercontent.com/agzam/mx-piper/main/mx-piper -o ~/.local/bin/mx-piper && chmod +x ~/.local/bin/mx-piper
+ curl -fsSL https://raw.githubusercontent.com/agzam/mx-piper/refs/heads/main/mx-piper -o \
+     ~/.local/bin/mx-piper \
+     && chmod +x ~/.local/bin/mx-piper 
   #+end_src
 
 Make sure Emacs daemon is running and emacsclient works!
 
-** Usage
+** Use
 
 *** Pipe command output into Emacs
 
@@ -143,7 +167,7 @@ npm run build | mx-piper "build-logs"
 git diff | mx-piper "review"
 
 # Send curl output to Emacs for inspection
-curl -s https://api.example.com/data | mx-piper "api-response"
+curl -s "https://api.thedogapi.com/v1/breeds" | jq | mx-piper "breeds"
 
 # Extract TODO items from buffer
 mx-piper -f "*scratch*" | grep TODO > todos.txt
