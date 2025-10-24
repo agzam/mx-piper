@@ -210,10 +210,10 @@ write_mode() {
   
   while IFS= read -r line; do
     buffer+="$line"$'\n'
-    ((count++))
+    count=$((count + 1))
     echo "$line"  # Pass through to stdout
     
-    if ((count >= CHUNK_SIZE)); then
+    if [ $count -ge $CHUNK_SIZE ]; then
       local encoded
       encoded=$(printf '%s' "$buffer" | encode_for_elisp)
       emacsclient --eval "(with-current-buffer \"$buffer_name\"
