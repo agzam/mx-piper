@@ -73,7 +73,12 @@ check_emacsclient() {
 
 # Escape string for elisp (using base64 to avoid escaping hell)
 encode_for_elisp() {
-  base64 | tr -d '\n'
+  # Use -w 0 on Linux (GNU) or plain on macOS (BSD)
+  if base64 --help 2>&1 | grep -q 'wrap'; then
+    base64 -w 0
+  else
+    base64 | tr -d '\n'
+  fi
 }
 
 # Find buffer by name or regex pattern (returns buffer name, not object)
