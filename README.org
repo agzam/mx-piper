@@ -168,6 +168,8 @@ git diff | mx-piper "review"
 
 # Send curl output to Emacs for inspection
 curl -s "https://api.thedogapi.com/v1/breeds" | jq | mx-piper "breeds"
+# and the the opposite direction:
+mx-piper "breeds" | jq '.[].name' | sort
 
 # Extract TODO items from buffer
 mx-piper -f "*scratch*" | grep TODO > todos.txt
