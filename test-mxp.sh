@@ -523,7 +523,8 @@ cleanup_buffer "*cleanup-test*"
 echo "cleanup test" | $SCRIPT "*cleanup-test*" &>/dev/null
 
 # Count temp files before
-before=$(ls /tmp/tmp.* 2>/dev/null | wc -l || echo 0)
+before=$(ls /tmp/tmp.* 2>/dev/null | wc -l | tr -d ' \n' || echo 0)
+[ -z "$before" ] && before=0
 
 # Read buffer multiple times
 for i in {1..5}; do
@@ -531,7 +532,8 @@ for i in {1..5}; do
 done
 
 # Count temp files after
-after=$(ls /tmp/tmp.* 2>/dev/null | wc -l || echo 0)
+after=$(ls /tmp/tmp.* 2>/dev/null | wc -l | tr -d ' \n' || echo 0)
+[ -z "$after" ] && after=0
 
 if [ "$before" -eq "$after" ]; then
   pass "No temp files left behind"
