@@ -312,9 +312,10 @@ read_mode() {
   # Ensure cleanup on exit/interrupt
   trap "rm -f '$temp_file'" EXIT INT TERM
   
-  # Write buffer to temp file
-  if ! emacsclient --eval "(with-current-buffer \"$buffer\"
-    (write-region (point-min) (point-max) \"$temp_file\" nil 'quiet))" > /dev/null 2>&1; then
+  # Write buffer to temp file with explicit UTF-8 encoding to avoid prompts
+  if ! emacsclient --eval "(let ((coding-system-for-write 'utf-8))
+    (with-current-buffer \"$buffer\"
+      (write-region (point-min) (point-max) \"$temp_file\" nil 'quiet)))" > /dev/null 2>&1; then
     die "Failed to read buffer '$buffer'"
   fi
   
