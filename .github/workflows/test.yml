@@ -38,9 +38,9 @@ jobs:
       - name: Run tests with ${{ matrix.shell }}
         run: |
           if [ "${{ matrix.shell }}" = "zsh" ]; then
-            zsh -c 'setopt SH_WORD_SPLIT && ./test-mxp.sh'
+            zsh -c 'setopt SH_WORD_SPLIT && make test-ci'
           else
-            bash ./test-mxp.sh
+            make test-ci
           fi
 
       - name: Stop Emacs daemon
