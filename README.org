@@ -1,6 +1,7 @@
 #+TITLE: mxp AKA "Emacs Piper"
 #+AUTHOR: Ag Ibragimov
 #+DATE: 2025
+#+OPTIONS: toc:t
 [[https://github.com/agzam/mx-piper/actions/workflows/test.yml][https://github.com/agzam/mx-piper/actions/workflows/test.yml/badge.svg]]
 
 Pipe content between your terminal and Emacs buffers - seamlessly bridge your command-line workflows with your editor.
