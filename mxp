@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 
-# mx-piper - Pipe content between terminal and Emacs buffers
+# mxp - Pipe content between terminal and Emacs buffers
 # Copyright (c) 2025 Ag Ibragimov <agzam.ibragimov@gmail.com>
 # Licensed under the MIT License. See LICENSE file for details.
 
 set -euo pipefail
 
-VERSION="0.1.0"
+VERSION="0.2.0"
 CHUNK_SIZE=100
 
 usage() {
   cat << EOF
-mx-piper v${VERSION} - Pipe content between terminal and Emacs buffers
+mxp v${VERSION} - Pipe content between terminal and Emacs buffers
 
 USAGE:
   # Write to Emacs (from stdin)
-  cat file.txt | mx-piper [OPTIONS] [BUFFER-NAME]
+  cat file.txt | mxp [OPTIONS] [BUFFER-NAME]
   
   # Read from Emacs (to stdout)
-  mx-piper --from BUFFER-NAME [OPTIONS]
-  mx-piper -f BUFFER-NAME [OPTIONS]
+  mxp --from BUFFER-NAME [OPTIONS]
+  mxp -f BUFFER-NAME [OPTIONS]
 
 OPTIONS:
   -f, --from BUFFER     Read from buffer (name or regex) and output to stdout
@@ -30,30 +30,30 @@ OPTIONS:
 
 EXAMPLES:
   # Pipe command output to new/generated buffer
-  tail -f app.log | mx-piper
+  tail -f app.log | mxp
   
   # Pipe to specific buffer
-  cat data.txt | mx-piper "my-buffer"
+  cat data.txt | mxp "my-buffer"
   
   # Pipe to first matching buffer (regex)
-  echo "data" | mx-piper "mybuf.*"
+  echo "data" | mxp "mybuf.*"
   
   # Append to buffer
-  echo "more data" | mx-piper --append "my-buffer"
+  echo "more data" | mxp --append "my-buffer"
   
   # Read buffer content to stdout
-  mx-piper --from "my-buffer"
+  mxp --from "my-buffer"
   
   # Pipe buffer content to another command
-  mx-piper --from "my-buffer" | grep error
+  mxp --from "my-buffer" | grep error
   
   # Use regex to match buffer
-  mx-piper -f "\\*scratch\\*" | wc -l
+  mxp -f "\\*scratch\\*" | wc -l
 
 NOTES:
   - Buffer names support regex patterns for matching
   - Auto-generates buffer names like "*Piper 1*" when none specified
-  - Hook: Define 'mx-piper-buffer-hook' in Emacs to run on buffer creation
+  - Hook: Define 'mxp-buffer-hook' in Emacs to run on buffer creation
   - Requires emacsclient (Emacs daemon must be running)
 
 EOF
@@ -239,8 +239,8 @@ write_mode() {
   
   # Run hook
   emacsclient --eval "(with-current-buffer \"$buffer_name\"
-    (when (boundp 'mx-piper-buffer-hook)
-      (run-hook-with-args 'mx-piper-buffer-hook \"$buffer_name\")))" > /dev/null
+    (when (boundp 'mxp-buffer-hook)
+      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\")))" > /dev/null
 }
 
 main() {
@@ -256,7 +256,7 @@ main() {
         usage
         ;;
       -v|--version)
-        echo "mx-piper v${VERSION}"
+        echo "mxp v${VERSION}"
         exit 0
         ;;
       -f|--from)
@@ -293,7 +293,7 @@ main() {
   # Execute mode
   if [ "$mode" = "read" ]; then
     if [ -z "$buffer_pattern" ]; then
-      die "Buffer name or pattern required for reading. Use: mx-piper --from BUFFER"
+      die "Buffer name or pattern required for reading. Use: mxp --from BUFFER"
     fi
     read_mode "$buffer_pattern"
   else
