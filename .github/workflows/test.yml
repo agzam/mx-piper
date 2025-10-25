@@ -23,16 +23,8 @@ jobs:
         with:
           version: ${{ matrix.emacs-version }}
 
-      - name: Cache zsh
-        if: matrix.shell == 'zsh'
-        id: cache-zsh
-        uses: actions/cache@v4
-        with:
-          path: /usr/bin/zsh
-          key: ${{ runner.os }}-zsh
-
       - name: Install zsh
-        if: matrix.shell == 'zsh' && steps.cache-zsh.outputs.cache-hit != 'true'
+        if: matrix.shell == 'zsh'
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
