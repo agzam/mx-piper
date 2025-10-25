@@ -18,6 +18,11 @@ All notable changes to this project will be documented in this file.
 - Enhanced help text with file/directory opening examples
 - Added smart detection notes to help and README
 
+** Fixed
+- Reading buffers with multibyte/Unicode characters (e.g., ~*Messages*~) now works correctly
+- Use ~buffer-substring-no-properties~ to exclude Emacs text properties from output
+- Added ~encode-coding-string~ to properly handle UTF-8 content in ~read_mode~
+
 * [0.3.0] - 2025-01-25
 
 ** Added
