@@ -306,8 +306,10 @@ read_mode() {
   fi
   
   # Get buffer content and decode from base64
+  # Use buffer-substring-no-properties to exclude Emacs text properties
+  # Use encode-coding-string to handle multibyte characters properly
   emacsclient --eval "(with-current-buffer \"$buffer\"
-    (base64-encode-string (buffer-string) t))" 2>/dev/null | sed 's/^"//; s/"$//' | base64 -d
+    (base64-encode-string (encode-coding-string (buffer-substring-no-properties (point-min) (point-max)) 'utf-8) t))" 2>/dev/null | sed 's/^"//; s/"$//' | base64 -d
 }
 
 # Open mode: open file or directory in Emacs
