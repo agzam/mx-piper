@@ -27,6 +27,7 @@ OPTIONS:
   -F, --force           Overwrite existing buffer (skip conflict resolution)
   -h, --help            Show this help message
   -v, --version         Show version
+  --update              Update mxp to the latest version from GitHub
 
 EXAMPLES:
   # Pipe command output to new/generated buffer
@@ -63,6 +64,114 @@ EOF
 die() {
   echo "Error: $*" >&2
   exit 1
+}
+
+# Find the actual script location, resolving symlinks
+find_script_location() {
+  local script="$0"
+  
+  # Try different methods to resolve symlinks (cross-platform)
+  if command -v readlink &> /dev/null; then
+    # GNU readlink (Linux)
+    if readlink -f "$script" &> /dev/null; then
+      readlink -f "$script"
+      return
+    fi
+    # Try macOS readlink (doesn't have -f)
+    while [ -L "$script" ]; do
+      script=$(readlink "$script")
+    done
+  fi
+  
+  # Fallback to realpath if available
+  if command -v realpath &> /dev/null; then
+    realpath "$script"
+    return
+  fi
+  
+  # Last resort: use cd/pwd trick
+  local dir=$(dirname "$script")
+  local base=$(basename "$script")
+  (cd "$dir" && echo "$(pwd)/$base")
+}
+
+# Check for updates by comparing local and remote versions
+check_for_updates() {
+  local remote_url="https://raw.githubusercontent.com/agzam/mx-piper/main/mxp"
+  
+  echo "Checking for updates..." >&2
+  
+  # Fetch remote version
+  local remote_version
+  remote_version=$(curl -fsSL "$remote_url" | grep -m1 '^VERSION=' | cut -d'"' -f2)
+  
+  if [ -z "$remote_version" ]; then
+    die "Failed to fetch remote version"
+  fi
+  
+  echo "$remote_version"
+}
+
+# Self-update the script
+self_update() {
+  local script_path
+  script_path=$(find_script_location)
+  
+  if [ ! -w "$script_path" ]; then
+    die "Cannot write to $script_path. Try running with sudo or check permissions."
+  fi
+  
+  local remote_url="https://raw.githubusercontent.com/agzam/mx-piper/main/mxp"
+  local temp_file
+  temp_file=$(mktemp)
+  
+  echo "Downloading latest version from GitHub..."
+  
+  # Download to temp file
+  if ! curl -fsSL "$remote_url" -o "$temp_file"; then
+    rm -f "$temp_file"
+    die "Failed to download update"
+  fi
+  
+  # Verify it's a valid bash script
+  if ! head -n1 "$temp_file" | grep -q '^#!/.*bash'; then
+    rm -f "$temp_file"
+    die "Downloaded file doesn't appear to be a valid bash script"
+  fi
+  
+  # Extract remote version
+  local new_version
+  new_version=$(grep -m1 '^VERSION=' "$temp_file" | cut -d'"' -f2)
+  
+  if [ -z "$new_version" ]; then
+    rm -f "$temp_file"
+    die "Could not determine version of downloaded file"
+  fi
+  
+  # Check if already up to date
+  if [ "$new_version" = "$VERSION" ]; then
+    rm -f "$temp_file"
+    echo "Already up to date (v${VERSION})"
+    exit 0
+  fi
+  
+  # Backup current version
+  local backup="${script_path}.backup"
+  echo "Backing up current version to ${backup}"
+  cp "$script_path" "$backup"
+  
+  # Replace with new version
+  echo "Installing v${new_version} (current: v${VERSION})"
+  if ! mv "$temp_file" "$script_path"; then
+    rm -f "$temp_file"
+    die "Failed to install update"
+  fi
+  
+  # Preserve executable permissions
+  chmod +x "$script_path"
+  
+  echo "Successfully updated to v${new_version}!"
+  echo "Backup saved at: ${backup}"
 }
 
 check_emacsclient() {
@@ -257,6 +366,10 @@ main() {
         ;;
       -v|--version)
         echo "mxp v${VERSION}"
+        exit 0
+        ;;
+      --update)
+        self_update
         exit 0
         ;;
       -f|--from)
