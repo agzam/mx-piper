@@ -18,8 +18,70 @@ NC='\033[0m' # No Color
 passed=0
 failed=0
 
+# Test filtering
+INCLUDE_TAGS=""
+EXCLUDE_TAGS=""
+FAST_MODE=false
+LIST_TESTS=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --fast)
+      FAST_MODE=true
+      EXCLUDE_TAGS="large,unicode,terminal"
+      shift
+      ;;
+    --only=*)
+      INCLUDE_TAGS="${1#*=}"
+      shift
+      ;;
+    --skip=*)
+      EXCLUDE_TAGS="${1#*=}"
+      shift
+      ;;
+    --list)
+      LIST_TESTS=true
+      shift
+      ;;
+    --help|-h)
+      cat << EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  --fast           Skip slow/CI-problematic tests (large, unicode, terminal)
+  --only=TAGS      Run only tests with specified tags (comma-separated)
+  --skip=TAGS      Skip tests with specified tags (comma-separated)
+  --list           List all available tests with their tags
+  --help           Show this help message
+
+Examples:
+  $0                    # Run all tests
+  $0 --fast             # Skip slow tests
+  $0 --only=core,read   # Run only core and read tests
+  $0 --skip=unicode     # Skip unicode tests
+
+Available tags: core, read, write, regex, large, unicode, terminal, cleanup
+EOF
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use --help for usage information"
+      exit 1
+      ;;
+  esac
+done
+
 echo "================================"
 echo "mxp Test Suite"
+if [ "$FAST_MODE" = true ]; then
+  echo "(Fast mode - skipping: $EXCLUDE_TAGS)"
+elif [ -n "$INCLUDE_TAGS" ]; then
+  echo "(Running only: $INCLUDE_TAGS)"
+elif [ -n "$EXCLUDE_TAGS" ]; then
+  echo "(Skipping: $EXCLUDE_TAGS)"
+fi
 echo "================================"
 echo ""
 
@@ -41,6 +103,39 @@ info() {
 section() {
   echo ""
   echo "--- $1 ---"
+}
+
+# Check if test should run based on tags
+should_run_test() {
+  local test_tags="$1"
+  
+  # If listing tests, always return true
+  if [ "$LIST_TESTS" = true ]; then
+    return 0
+  fi
+  
+  # Check exclude tags
+  if [ -n "$EXCLUDE_TAGS" ]; then
+    IFS=',' read -ra EXCLUDE_ARRAY <<< "$EXCLUDE_TAGS"
+    for tag in "${EXCLUDE_ARRAY[@]}"; do
+      if [[ ",$test_tags," == *",$tag,"* ]]; then
+        return 1  # Skip this test
+      fi
+    done
+  fi
+  
+  # Check include tags (if specified, test must have at least one matching tag)
+  if [ -n "$INCLUDE_TAGS" ]; then
+    IFS=',' read -ra INCLUDE_ARRAY <<< "$INCLUDE_TAGS"
+    for tag in "${INCLUDE_ARRAY[@]}"; do
+      if [[ ",$test_tags," == *",$tag,"* ]]; then
+        return 0  # Run this test
+      fi
+    done
+    return 1  # No matching tags, skip
+  fi
+  
+  return 0  # No filters, run all tests
 }
 
 cleanup_buffer() {
