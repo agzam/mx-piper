@@ -305,11 +305,21 @@ read_mode() {
     die "No buffer matching '$pattern' found"
   fi
   
-  # Get buffer content and decode from base64
-  # Use buffer-substring-no-properties to exclude Emacs text properties
-  # Use encode-coding-string to handle multibyte characters properly
-  emacsclient --eval "(with-current-buffer \"$buffer\"
-    (base64-encode-string (encode-coding-string (buffer-substring-no-properties (point-min) (point-max)) 'utf-8) t))" 2>/dev/null | sed 's/^"//; s/"$//' | base64 -d
+  # Get buffer content via temporary file (avoids emacsclient output limits and base64 overhead)
+  local temp_file
+  temp_file=$(mktemp)
+  
+  # Ensure cleanup on exit/interrupt
+  trap "rm -f '$temp_file'" EXIT INT TERM
+  
+  # Write buffer to temp file
+  if ! emacsclient --eval "(with-current-buffer \"$buffer\"
+    (write-region (point-min) (point-max) \"$temp_file\" nil 'quiet))" > /dev/null 2>&1; then
+    die "Failed to read buffer '$buffer'"
+  fi
+  
+  # Output content (trap will cleanup)
+  cat "$temp_file"
 }
 
 # Open mode: open file or directory in Emacs
