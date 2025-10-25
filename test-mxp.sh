@@ -66,6 +66,7 @@ buffer_content() {
 section "Pre-test Cleanup"
 cleanup_buffer "*test-buffer*"
 cleanup_buffer "*test-append*"
+cleanup_buffer "*test-prepend*"
 cleanup_buffer "*test-conflict*"
 cleanup_buffer "*test-conflict<2>*"
 cleanup_buffer "*Piper 1*"
@@ -168,6 +169,44 @@ if [[ "$content" == *"third line"* ]]; then
   pass "Append works with -a short flag"
 else
   fail "Short flag -a failed"
+fi
+
+# Test 8.1: Prepend mode
+section "Test 5.1: Prepend Mode"
+cleanup_buffer "*test-prepend*"
+echo "line 2" | $SCRIPT "*test-prepend*" &>/dev/null
+echo "line 1" | $SCRIPT --prepend "*test-prepend*" &>/dev/null
+
+content=$(buffer_content "*test-prepend*")
+# Check that line 1 appears before line 2
+if [[ "$content" == *"line 1"* ]] && [[ "$content" == *"line 2"* ]]; then
+  # Use tr to remove newlines for pattern matching
+  content_flat=$(echo "$content" | tr '\n' ' ')
+  if [[ "$content_flat" == *"line 1"*"line 2"* ]]; then
+    pass "Prepend mode inserts at beginning"
+  else
+    fail "Prepend mode order incorrect: got '$content'"
+  fi
+else
+  fail "Prepend mode failed: got '$content'"
+fi
+
+# Test 8.2: Prepend with short flag
+echo "line 0" | $SCRIPT -p "*test-prepend*" &>/dev/null
+content=$(buffer_content "*test-prepend*")
+content_flat=$(echo "$content" | tr '\n' ' ')
+if [[ "$content_flat" == *"line 0"*"line 1"*"line 2"* ]]; then
+  pass "Prepend works with -p short flag"
+else
+  fail "Short flag -p failed or order incorrect"
+fi
+
+# Test 8.3: Conflicting --append and --prepend flags
+output=$(echo "test" | $SCRIPT --append --prepend "*test-buffer*" 2>&1 || true)
+if [[ "$output" == *"Cannot use both --append and --prepend"* ]]; then
+  pass "Validates conflicting --append and --prepend flags"
+else
+  fail "Should error on conflicting append/prepend flags"
 fi
 
 # Test 9: Conflict resolution (without force)

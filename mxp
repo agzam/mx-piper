@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.3.0"
 CHUNK_SIZE=100
 
 usage() {
@@ -24,6 +24,7 @@ USAGE:
 OPTIONS:
   -f, --from BUFFER     Read from buffer (name or regex) and output to stdout
   -a, --append          Append to buffer instead of replacing content
+  -p, --prepend         Prepend to buffer (insert at the beginning)
   -F, --force           Overwrite existing buffer (skip conflict resolution)
   -h, --help            Show this help message
   -v, --version         Show version
@@ -41,6 +42,9 @@ EXAMPLES:
   
   # Append to buffer
   echo "more data" | mxp --append "my-buffer"
+  
+  # Prepend to buffer (insert at the top)
+  echo "header" | mxp --prepend "my-buffer"
   
   # Read buffer content to stdout
   mxp --from "my-buffer"
@@ -278,7 +282,8 @@ read_mode() {
 write_mode() {
   local buffer_pattern="$1"
   local append="$2"
-  local force="$3"
+  local prepend="$3"
+  local force="$4"
   
   check_emacsclient
   
@@ -291,8 +296,8 @@ write_mode() {
     existing=$(find_buffer "$buffer_pattern")
     
     if [ -n "$existing" ]; then
-      if [ "$force" = "true" ] || [ "$append" = "true" ]; then
-        # Use existing buffer if forcing or appending
+      if [ "$force" = "true" ] || [ "$append" = "true" ] || [ "$prepend" = "true" ]; then
+        # Use existing buffer if forcing, appending, or prepending
         buffer_name="$existing"
       else
         # Create new buffer with suffix to avoid conflict
@@ -308,6 +313,10 @@ write_mode() {
     emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
       (goto-char (point-max))
       nil)" > /dev/null
+  elif [ "$prepend" = "true" ]; then
+    emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
+      (goto-char (point-min))
+      nil)" > /dev/null
   else
     emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
       (erase-buffer)
@@ -320,6 +329,12 @@ write_mode() {
   # Stream content in chunks
   local buffer=""
   local count=0
+  local insert_point
+  if [ "$prepend" = "true" ]; then
+    insert_point="(point-min)"
+  else
+    insert_point="(point-max)"
+  fi
   
   while IFS= read -r line || [ -n "$line" ]; do
     buffer+="$line"$'\n'
@@ -330,7 +345,7 @@ write_mode() {
       local encoded
       encoded=$(printf '%s' "$buffer" | encode_for_elisp)
       emacsclient --eval "(with-current-buffer \"$buffer_name\"
-        (goto-char (point-max))
+        (goto-char $insert_point)
         (insert (base64-decode-string \"$encoded\")))" > /dev/null &
       buffer=""
       count=0
@@ -342,7 +357,7 @@ write_mode() {
     local encoded
     encoded=$(printf '%s' "$buffer" | encode_for_elisp)
     emacsclient --eval "(with-current-buffer \"$buffer_name\"
-      (goto-char (point-max))
+      (goto-char $insert_point)
       (insert (base64-decode-string \"$encoded\")))" > /dev/null
   fi
   
@@ -356,6 +371,7 @@ main() {
   local mode="write"
   local buffer_pattern=""
   local append="false"
+  local prepend="false"
   local force="false"
   
   # Parse arguments
@@ -380,6 +396,9 @@ main() {
       -a|--append)
         append="true"
         ;;
+      -p|--prepend)
+        prepend="true"
+        ;;
       -F|--force)
         force="true"
         ;;
@@ -403,6 +422,11 @@ main() {
     fi
   fi
   
+  # Validate flags
+  if [ "$append" = "true" ] && [ "$prepend" = "true" ]; then
+    die "Cannot use both --append and --prepend"
+  fi
+  
   # Execute mode
   if [ "$mode" = "read" ]; then
     if [ -z "$buffer_pattern" ]; then
@@ -410,7 +434,7 @@ main() {
     fi
     read_mode "$buffer_pattern"
   else
-    write_mode "$buffer_pattern" "$append" "$force"
+    write_mode "$buffer_pattern" "$append" "$prepend" "$force"
   fi
 }
 
