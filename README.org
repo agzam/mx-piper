@@ -26,18 +26,18 @@ The script works with both bash and zsh, handles special characters properly, an
 - Stream logs in real-time to watch them in your editor
 - Extract buffer content from Emacs and pipe it to terminal commands
 
-*** Did you know?
+*** Did you know about piping in Eshell?
 
 Emacs has piping in/out buffers in Eshell! You can pipe content into a buffer like this:
 
 #+begin_src emacs-lisp
-;; Pipe command output to a buffer
+;; In eshell, you can pipe command output to a buffer 
 ;; You can press <C-c M-b> to pick a buffer instead of typing it
 
 cat file.txt > #<buffer some-buffer> 
 #+end_src
 
-Unfortunately, Eshell doesn't support input redirection, so reading from a buffer ain't so straightforward, yet still possible. You just need to create a custom eshell command, e.g.:
+Unfortunately, Eshell doesn't support input redirection, so reading from a buffer ain't so straightforward, yet still possible. You just need to create a custom eshell command to read from a buffer, e.g.:
 
 #+begin_src emacs-lisp
 ;; note the eshell/ prefix
