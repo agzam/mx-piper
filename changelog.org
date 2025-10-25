@@ -4,6 +4,20 @@
 
 All notable changes to this project will be documented in this file.
 
+* [0.4.0] - 2025-01-25
+
+** Added
+- Open mode: Open files and directories directly in Emacs with ~mxp file.txt~ or ~mxp .~
+- Smart detection automatically distinguishes file paths from buffer names
+- ~is_path()~ function for detecting file/directory arguments
+- Support for opening directories in dired
+- Support for ~, ~/, and relative path patterns
+
+** Changed
+- Mode detection now checks if argument is a file path before treating as buffer name
+- Enhanced help text with file/directory opening examples
+- Added smart detection notes to help and README
+
 * [0.3.0] - 2025-01-25
 
 ** Added

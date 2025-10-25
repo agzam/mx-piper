@@ -85,6 +85,24 @@ Make sure Emacs daemon is running and emacsclient works!
 
 ** Use
 
+*** Open files and directories in Emacs
+
+#+begin_src shell
+# Open a file
+mxp my-file.txt
+mxp README.org
+
+# Open current directory in dired
+mxp .
+
+# Open any directory
+mxp ~/Projects
+mxp /path/to/directory
+
+# Works with relative paths
+mxp ../other-project/file.txt
+#+end_src
+
 *** Pipe command output into Emacs
 
 #+begin_src shell
@@ -165,10 +183,15 @@ You can define a hook in your Emacs config to run custom logic when buffers are 
 ** Examples
 
 #+begin_src shell
+# Quick file/directory access
+mxp config.json          # Open config file
+mxp .                    # Browse current directory in dired
+mxp ~/Documents          # Open Documents folder
+
 # Watch build logs in Emacs
 npm run build | mxp "build-logs"
 
-# Capture git diff
+# Capture git diff for review
 git diff | mxp "review"
 
 # Send curl output to Emacs for inspection
@@ -185,6 +208,10 @@ tail -f app.log | mxp --append "logs"
 
 # Pipe multiple buffers together
 cat <(mxp -f "header") <(mxp -f "body") | mail -s "Report" user@example.com
+
+# Edit a file, then pipe its buffer content through a command
+mxp config.yaml                           # Opens in Emacs
+mxp -f config.yaml | yq '.version' -      # Read it back
 #+end_src
 
 * Changelog
