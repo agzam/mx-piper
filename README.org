@@ -1,7 +1,7 @@
 #+TITLE: mxp AKA "Emacs Piper"
 #+AUTHOR: Ag Ibragimov
 #+DATE: 2025
-[[https://github.com/agzam/mxp/actions/workflows/test.yml][https://github.com/agzam/mxp/actions/workflows/test.yml/badge.svg]]
+[[https://github.com/agzam/mx-piper/actions/workflows/test.yml][https://github.com/agzam/mx-piper/actions/workflows/test.yml/badge.svg]]
 
 Pipe content between your terminal and Emacs buffers - seamlessly bridge your command-line workflows with your editor.
 
@@ -75,7 +75,7 @@ Incredibly powerful, but this only works *inside* Eshell - you cannot use it in 
 
 Download and put it somewhere in the $PATH
  #+begin_src shell
- curl -fsSL https://raw.githubusercontent.com/agzam/mxp/refs/heads/main/mxp -o \
+ curl -fsSL https://raw.githubusercontent.com/agzam/mx-piper/refs/heads/main/mxp -o \
      ~/.local/bin/mxp \
      && chmod +x ~/.local/bin/mxp 
   #+end_src
