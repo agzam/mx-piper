@@ -384,6 +384,63 @@ else
   info "Buffer detection test skipped (requires terminal)"
 fi
 
+# Test 23: Large buffer reading
+section "Test 18: Large Buffer Reading"
+cleanup_buffer "*large-buffer-test*"
+
+# Create a buffer with ~100KB of content (1000 lines of 100 chars each)
+{
+  for i in {1..1000}; do
+    printf "Line %04d: %s\n" "$i" "$(printf 'x%.0s' {1..90})"
+  done
+} | $SCRIPT "*large-buffer-test*" &>/dev/null
+
+# Read it back and verify
+output=$($SCRIPT --from "*large-buffer-test*" 2>/dev/null)
+line_count=$(echo "$output" | wc -l | tr -d ' ')
+
+if [ "$line_count" = "1000" ]; then
+  pass "Large buffer (1000 lines) read successfully"
+else
+  fail "Large buffer read failed: expected 1000 lines, got $line_count"
+fi
+
+# Test 24: Multibyte character support
+section "Test 19: Multibyte Characters"
+cleanup_buffer "*unicode-test*"
+
+# Test with Unicode characters (emoji, accented chars, etc)
+echo "Hello 世界 🌍 Émojis 🎉" | $SCRIPT "*unicode-test*" &>/dev/null
+output=$($SCRIPT --from "*unicode-test*" 2>/dev/null)
+
+if [[ "$output" == *"世界"* ]] && [[ "$output" == *"🌍"* ]] && [[ "$output" == *"🎉"* ]]; then
+  pass "Multibyte/Unicode characters preserved"
+else
+  fail "Multibyte characters not preserved: got '$output'"
+fi
+
+# Test 25: Temp file cleanup
+section "Test 20: Temp File Cleanup"
+cleanup_buffer "*cleanup-test*"
+echo "cleanup test" | $SCRIPT "*cleanup-test*" &>/dev/null
+
+# Count temp files before
+before=$(ls /tmp/tmp.* 2>/dev/null | wc -l || echo 0)
+
+# Read buffer multiple times
+for i in {1..5}; do
+  $SCRIPT --from "*cleanup-test*" &>/dev/null
+done
+
+# Count temp files after
+after=$(ls /tmp/tmp.* 2>/dev/null | wc -l || echo 0)
+
+if [ "$before" -eq "$after" ]; then
+  pass "No temp files left behind"
+else
+  fail "Temp files not cleaned up: before=$before, after=$after"
+fi
+
 # Summary
 section "Test Summary"
 echo ""
