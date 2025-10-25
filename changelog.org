@@ -1,0 +1,28 @@
+#+TITLE: Changelog
+#+AUTHOR: Ag Ibragimov
+#+DATE: 2025
+
+All notable changes to this project will be documented in this file.
+
+* [0.2.0] - 2025-01-25
+
+** Changed
+- Renamed project from ~mx-piper~ to ~mxp~ for brevity
+- Updated hook variable from ~mx-piper-buffer-hook~ to ~mxp-buffer-hook~
+- Updated all documentation and examples to reflect new name
+
+* [0.1.0] - 2025-01-24
+
+** Added
+- Initial release
+- Write mode: pipe stdin to Emacs buffers
+- Read mode: output buffer content to stdout
+- Auto-generated buffer names (~*Piper 1*~, ~*Piper 2*~, etc.)
+- Buffer matching via regex patterns
+- Append mode (~--append~, ~-a~)
+- Force overwrite mode (~--force~, ~-F~)
+- Pass-through behavior (tee-like)
+- Streaming support with chunked processing
+- Conflict resolution for duplicate buffer names
+- Emacs hook support for custom buffer creation logic
+- Comprehensive test suite

@@ -1,13 +1,13 @@
-#+TITLE: mx-piper
+#+TITLE: mxp AKA "Emacs Piper"
 #+AUTHOR: Ag Ibragimov
 #+DATE: 2025
-[[https://github.com/agzam/mx-piper/actions/workflows/test.yml][https://github.com/agzam/mx-piper/actions/workflows/test.yml/badge.svg]]
+[[https://github.com/agzam/mxp/actions/workflows/test.yml][https://github.com/agzam/mxp/actions/workflows/test.yml/badge.svg]]
 
 Pipe content between your terminal and Emacs buffers - seamlessly bridge your command-line workflows with your editor.
 
 * What?
 
-~mx-piper~ is a shell script that acts as a bridge between Unix pipes and Emacs buffers. It supports:
+~mxp~ is a shell script that acts as a bridge between Unix pipes and Emacs buffers. It supports:
 
 - *Write mode*: Pipe stdin to Emacs buffers (creates new or appends to existing)
 - *Read mode*: Output buffer content to stdout for piping
@@ -61,7 +61,7 @@ And then we can use it in Eshell:
 b #<buffer README.org> | rg "error"
 #+end_src
 
-Incredibly powerful, but this only works *inside* Eshell - you cannot use it in an external terminal. ~mx-piper~ brings this same workflow to your regular shell, letting you pipe between *any* terminal and Emacs. 
+Incredibly powerful, but this only works *inside* Eshell - you cannot use it in an external terminal. ~mxp~ brings this same workflow to your regular shell, letting you pipe between *any* terminal and Emacs. 
 
 * How?
 
@@ -75,9 +75,9 @@ Incredibly powerful, but this only works *inside* Eshell - you cannot use it in 
 
 Download and put it somewhere in the $PATH
  #+begin_src shell
- curl -fsSL https://raw.githubusercontent.com/agzam/mx-piper/refs/heads/main/mx-piper -o \
-     ~/.local/bin/mx-piper \
-     && chmod +x ~/.local/bin/mx-piper 
+ curl -fsSL https://raw.githubusercontent.com/agzam/mxp/refs/heads/main/mxp -o \
+     ~/.local/bin/mxp \
+     && chmod +x ~/.local/bin/mxp 
   #+end_src
 
 Make sure Emacs daemon is running and emacsclient works!
@@ -88,36 +88,36 @@ Make sure Emacs daemon is running and emacsclient works!
 
 #+begin_src shell
 # Pipe to a named buffer
-cat file.txt | mx-piper "my-buffer"
+cat file.txt | mxp "my-buffer"
 
 # Pipe to auto-generated buffer (*Piper 1*, *Piper 2*, etc.)
-tail -f /var/log/app.log | mx-piper
+tail -f /var/log/app.log | mxp
 
 # Append to existing buffer
-echo "more content" | mx-piper --append "my-buffer"
-echo "more content" | mx-piper -a "my-buffer"
+echo "more content" | mxp --append "my-buffer"
+echo "more content" | mxp -a "my-buffer"
 
 # Match buffer by regex
-echo "data" | mx-piper "mybuf.*"
+echo "data" | mxp "mybuf.*"
 
 # Force overwrite existing buffer
-cat new.txt | mx-piper --force "my-buffer"
-cat new.txt | mx-piper -F "my-buffer"
+cat new.txt | mxp --force "my-buffer"
+cat new.txt | mxp -F "my-buffer"
 #+end_src
 
 *** Extract buffer content and pipe to commands
 
 #+begin_src shell
 # Output buffer to stdout
-mx-piper --from "my-buffer"
-mx-piper -f "my-buffer"
+mxp --from "my-buffer"
+mxp -f "my-buffer"
 
 # Pipe buffer to commands
-mx-piper --from "*Messages*" | grep error
-mx-piper -f ".*scratch.*" | wc -l
+mxp --from "*Messages*" | grep error
+mxp -f ".*scratch.*" | wc -l
 
 # Use in command chains
-mx-piper -f "my-buffer" | sort | uniq | less
+mxp -f "my-buffer" | sort | uniq | less
 #+end_src
 
 *** Pass-through behavior
@@ -126,7 +126,7 @@ Content flows through to stdout, so you can continue piping:
 
 #+begin_src shell
 # Capture to buffer AND pass through
-cat data.txt | mx-piper "backup" | grep important | mx-piper "filtered"
+cat data.txt | mxp "backup" | grep important | mxp "filtered"
 #+end_src
 
 *** Process substitution
@@ -135,10 +135,10 @@ Works naturally with process substitution for commands expecting files:
 
 #+begin_src shell
 # Compare two buffers
-diff <(mx-piper -f "version-1") <(mx-piper -f "version-2")
+diff <(mxp -f "version-1") <(mxp -f "version-2")
 
 # Use buffer as input file
-jq . <(mx-piper -f "*json-data*")
+jq . <(mxp -f "*json-data*")
 #+end_src
 
 ** Emacs Hook
@@ -146,37 +146,41 @@ jq . <(mx-piper -f "*json-data*")
 You can define a hook in your Emacs config to run custom logic when buffers are created:
 
 #+begin_src emacs-lisp
-(defun my-piper-hook (buffer-name)
-  "Custom logic when mx-piper creates a buffer."
+(defun my-mxp-hook (buffer-name)
+  "Custom logic when mxp creates a buffer."
   (with-current-buffer buffer-name
     ;; Auto-enable certain modes, format content, etc.
     (when (string-match ".*\\.json.*" buffer-name)
       (json-mode)
       (json-pretty-print-buffer))))
 
-(setq mx-piper-buffer-hook #'my-piper-hook)
+(setq mxp-buffer-hook #'my-mxp-hook)
 #+end_src
 
 ** Examples
 
 #+begin_src shell
 # Watch build logs in Emacs
-npm run build | mx-piper "build-logs"
+npm run build | mxp "build-logs"
 
 # Capture git diff
-git diff | mx-piper "review"
+git diff | mxp "review"
 
 # Send curl output to Emacs for inspection
-curl -s "https://api.thedogapi.com/v1/breeds" | jq | mx-piper "breeds"
+curl -s "https://api.thedogapi.com/v1/breeds" | jq | mxp "breeds"
 # and the the opposite direction:
-mx-piper "breeds" | jq '.[].name' | sort
+mxp "breeds" | jq '.[].name' | sort | mxp "dog names"
 
 # Extract TODO items from buffer
-mx-piper -f "*scratch*" | grep TODO > todos.txt
+mxp -f "*scratch*" | grep TODO > todos.txt
 
 # Pipe multiple buffers together
-cat <(mx-piper -f "header") <(mx-piper -f "body") | mail -s "Report" user@example.com
+cat <(mxp -f "header") <(mxp -f "body") | mail -s "Report" user@example.com
 #+end_src
+
+* Changelog
+
+See [[file:changelog.org][changelog.org]] for release history and notable changes.
 
 * License
 

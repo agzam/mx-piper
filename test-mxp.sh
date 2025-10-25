@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Test suite for mx-piper
+# Test suite for mxp
 # Copyright (c) 2025 Ag Ibragimov <agzam.ibragimov@gmail.com>
 # Licensed under the MIT License. See LICENSE file for details.
 
@@ -9,7 +9,7 @@ set -euo pipefail
 # Trap errors and show which line failed
 trap 'echo "Error on line $LINENO"' ERR
 
-SCRIPT="./mx-piper"
+SCRIPT="./mxp"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -19,7 +19,7 @@ passed=0
 failed=0
 
 echo "================================"
-echo "mx-piper Test Suite"
+echo "mxp Test Suite"
 echo "================================"
 echo ""
 
@@ -58,8 +58,8 @@ buffer_exists() {
 
 buffer_content() {
   local buffer="$1"
-  # Use mx-piper's own read mode instead of parsing elisp strings
-  ./mx-piper --from "$buffer" 2>/dev/null
+  # Use mxp's own read mode instead of parsing elisp strings
+  ./mxp --from "$buffer" 2>/dev/null
 }
 
 # Pre-test cleanup
@@ -74,13 +74,13 @@ info "Cleaned up test buffers"
 
 # Test 1: Basic help
 section "Test 1: Help and Version"
-if $SCRIPT --help | grep -q "mx-piper"; then
+if $SCRIPT --help | grep -q "mxp"; then
   pass "Help message displays"
 else
   fail "Help message missing"
 fi
 
-if $SCRIPT --version | grep -q "mx-piper v"; then
+if $SCRIPT --version | grep -q "mxp v"; then
   pass "Version displays"
 else
   fail "Version missing"

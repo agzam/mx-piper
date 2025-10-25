@@ -46,9 +46,9 @@ jobs:
       - name: Run tests with ${{ matrix.shell }}
         run: |
           if [ "${{ matrix.shell }}" = "zsh" ]; then
-            zsh -c 'setopt SH_WORD_SPLIT && ./test-mx-piper.sh'
+            zsh -c 'setopt SH_WORD_SPLIT && ./test-mxp.sh'
           else
-            bash ./test-mx-piper.sh
+            bash ./test-mxp.sh
           fi
 
       - name: Stop Emacs daemon
