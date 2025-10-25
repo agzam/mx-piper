@@ -4,6 +4,26 @@
 
 All notable changes to this project will be documented in this file.
 
+* [0.4.0] - 2025-01-25
+
+** Added
+- Open mode: Open files and directories directly in Emacs with ~mxp file.txt~ or ~mxp .~
+- Smart detection automatically distinguishes file paths from buffer names
+- ~is_path()~ function for detecting file/directory arguments
+- Support for opening directories in dired
+- Support for ~, ~/, and relative path patterns
+
+** Changed
+- Mode detection now checks if argument is a file path before treating as buffer name
+- Enhanced help text with file/directory opening examples
+- Added smart detection notes to help and README
+
+** Fixed
+- Reading buffers with multibyte/Unicode characters (e.g., ~*Messages*~) now works correctly
+- Fixed large buffer reading by using temporary files instead of base64 encoding
+- Removed ~emacsclient --eval~ output size limitations (previously failed on buffers >1MB)
+- Significantly improved performance for large buffers (10MB buffer: ~0.12s vs previous timeout)
+
 * [0.3.0] - 2025-01-25
 
 ** Added

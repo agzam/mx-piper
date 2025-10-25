@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.3.0"
+VERSION="0.4.0"
 CHUNK_SIZE=100
 
 usage() {
@@ -20,6 +20,9 @@ USAGE:
   # Read from Emacs (to stdout)
   mxp --from BUFFER-NAME [OPTIONS]
   mxp -f BUFFER-NAME [OPTIONS]
+  
+  # Open file or directory in Emacs
+  mxp FILE-OR-DIRECTORY
 
 OPTIONS:
   -f, --from BUFFER     Read from buffer (name or regex) and output to stdout
@@ -54,8 +57,17 @@ EXAMPLES:
   
   # Use regex to match buffer
   mxp -f "\\*scratch\\*" | wc -l
+  
+  # Open files and directories
+  mxp my-file.txt
+  mxp .
+  mxp ~/Projects
+  mxp /path/to/file
 
 NOTES:
+  - Smart detection: automatically detects files/directories vs buffer names
+    - Paths with /, ~, . or existing on filesystem → open in Emacs
+    - Everything else → treated as buffer name
   - Buffer names support regex patterns for matching
   - Auto-generates buffer names like "*Piper 1*" when none specified
   - Hook: Define 'mxp-buffer-hook' in Emacs to run on buffer creation
@@ -188,6 +200,26 @@ check_emacsclient() {
   fi
 }
 
+# Detect if argument is a file/directory path (vs buffer name)
+is_path() {
+  local arg="$1"
+  
+  # Empty argument is not a path
+  [ -z "$arg" ] && return 1
+  
+  # Exists on filesystem
+  [ -e "$arg" ] && return 0
+  
+  # Starts with ~, /, or .
+  [[ "$arg" =~ ^[~/.] ]] && return 0
+  
+  # Contains / (relative or absolute path)
+  [[ "$arg" == */* ]] && return 0
+  
+  # Otherwise, treat as buffer name
+  return 1
+}
+
 # Escape string for elisp (using base64 to avoid escaping hell)
 encode_for_elisp() {
   # Use -w 0 on Linux (GNU) or plain on macOS (BSD)
@@ -273,9 +305,55 @@ read_mode() {
     die "No buffer matching '$pattern' found"
   fi
   
-  # Get buffer content and decode from base64
-  emacsclient --eval "(with-current-buffer \"$buffer\"
-    (base64-encode-string (buffer-string) t))" 2>/dev/null | sed 's/^"//; s/"$//' | base64 -d
+  # Get buffer content via temporary file (avoids emacsclient output limits and base64 overhead)
+  local temp_file
+  temp_file=$(mktemp)
+  
+  # Ensure cleanup on exit/interrupt
+  trap "rm -f '$temp_file'" EXIT INT TERM
+  
+  # Write buffer to temp file with explicit UTF-8 encoding to avoid prompts
+  if ! emacsclient --eval "(let ((coding-system-for-write 'utf-8))
+    (with-current-buffer \"$buffer\"
+      (write-region (point-min) (point-max) \"$temp_file\" nil 'quiet)))" > /dev/null 2>&1; then
+    die "Failed to read buffer '$buffer'"
+  fi
+  
+  # Output content (trap will cleanup)
+  cat "$temp_file"
+}
+
+# Open mode: open file or directory in Emacs
+open_mode() {
+  local path="$1"
+  
+  check_emacsclient
+  
+  # Expand ~ to home directory if needed
+  if [[ "$path" == "~"* ]]; then
+    path="${path/#\~/$HOME}"
+  fi
+  
+  # Convert to absolute path
+  if [[ "$path" != /* ]]; then
+    path="$(cd "$(dirname "$path")" 2>/dev/null && pwd)/$(basename "$path")"
+  fi
+  
+  # Check if path exists
+  if [ ! -e "$path" ]; then
+    die "Path does not exist: $path"
+  fi
+  
+  # Open in Emacs (no-wait mode)
+  if [ -d "$path" ]; then
+    # Directory - open in dired
+    emacsclient -n "$path" &>/dev/null
+    echo "Opened directory in Emacs: $path"
+  else
+    # File - open with find-file
+    emacsclient -n "$path" &>/dev/null
+    echo "Opened file in Emacs: $path"
+  fi
 }
 
 # Write mode: pipe stdin to buffer
@@ -413,10 +491,16 @@ main() {
   done
   
   # Determine mode if not explicitly set
+  # Check if stdin is a terminal (interactive use, no pipe)
   if [ "$mode" = "write" ] && [ -t 0 ]; then
-    # No stdin and no --from flag, but buffer pattern given
+    # No stdin pipe - check what the argument is
     if [ -n "$buffer_pattern" ]; then
-      mode="read"
+      # Check if it's a file/directory path or buffer name
+      if is_path "$buffer_pattern"; then
+        mode="open"
+      else
+        mode="read"
+      fi
     else
       die "No input provided. Use --help for usage."
     fi
@@ -433,6 +517,8 @@ main() {
       die "Buffer name or pattern required for reading. Use: mxp --from BUFFER"
     fi
     read_mode "$buffer_pattern"
+  elif [ "$mode" = "open" ]; then
+    open_mode "$buffer_pattern"
   else
     write_mode "$buffer_pattern" "$append" "$prepend" "$force"
   fi
