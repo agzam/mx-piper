@@ -98,6 +98,10 @@ tail -f /var/log/app.log | mxp
 echo "more content" | mxp --append "my-buffer"
 echo "more content" | mxp -a "my-buffer"
 
+# Prepend to existing buffer (insert at the top)
+echo "header info" | mxp --prepend "my-buffer"
+echo "header info" | mxp -p "my-buffer"
+
 # Match buffer by regex
 echo "data" | mxp "mybuf.*"
 
@@ -174,6 +178,10 @@ mxp "breeds" | jq '.[].name' | sort | mxp "dog names"
 
 # Extract TODO items from buffer
 mxp -f "*scratch*" | grep TODO > todos.txt
+
+# Add timestamps to the top of a log buffer
+date | mxp --prepend "logs"
+tail -f app.log | mxp --append "logs"
 
 # Pipe multiple buffers together
 cat <(mxp -f "header") <(mxp -f "body") | mail -s "Report" user@example.com

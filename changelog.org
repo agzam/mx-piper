@@ -4,6 +4,18 @@
 
 All notable changes to this project will be documented in this file.
 
+* [0.3.0] - 2025-01-25
+
+** Added
+- Prepend mode (~--prepend~, ~-p~) to insert content at the beginning of buffers
+- Self-update functionality (~--update~) to upgrade mxp from GitHub
+- Validation to prevent using both ~--append~ and ~--prepend~ together
+- Symlink resolution in self-update to handle aliased/linked installations
+- Automatic backup creation during updates (~.backup~ file)
+
+** Changed
+- Table of contents added to README.org
+
 * [0.2.0] - 2025-01-25
 
 ** Changed
