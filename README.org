@@ -214,12 +214,9 @@ mxp config.yaml                           # Opens in Emacs
 mxp -f config.yaml | yq '.version' -      # Read it back
 #+end_src
 
-* Changelog
 
-See [[file:changelog.org][changelog.org]] for release history and notable changes.
+** [[file:changelog.org][Changelog]] & [[file:LICENSE][License]]
 
-* License
+#+HTML: <small>Copyright © 2025 Ag Ibragimov <agzam.ibragimov@gmail.com></small>
 
-Copyright © 2025 Ag Ibragimov <agzam.ibragimov@gmail.com>
 
-Licensed under the MIT License. See [[file:LICENSE][LICENSE]] file for details.
