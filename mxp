@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.4.0"
+VERSION="0.5.0"
 CHUNK_SIZE=100
 
 usage() {
@@ -417,7 +417,6 @@ write_mode() {
   while IFS= read -r line || [ -n "$line" ]; do
     buffer+="$line"$'\n'
     count=$((count + 1))
-    echo "$line"  # Pass through to stdout
     
     if [ $count -ge $CHUNK_SIZE ]; then
       local encoded

@@ -163,7 +163,7 @@ cleanup_buffer "*test-buffer*"
 cleanup_buffer "*test-append*"
 cleanup_buffer "*test-prepend*"
 cleanup_buffer "*test-conflict*"
-cleanup_buffer "*test-conflict<2>*"
+cleanup_buffer "*test-conflict*<2>"
 cleanup_buffer "*Piper 1*"
 cleanup_buffer "*Piper 2*"
 info "Cleaned up test buffers"
@@ -310,13 +310,13 @@ if [ -n "${CI:-}" ]; then
   info "Skipped in CI (shell-specific edge case)"
 else
   cleanup_buffer "*test-conflict*"
-  cleanup_buffer "*test-conflict<2>*"
+  cleanup_buffer "*test-conflict*<2>"
   echo "first" | $SCRIPT "*test-conflict*" &>/dev/null
   echo "second" | $SCRIPT "*test-conflict*" &>/dev/null
 
-  if buffer_exists "*test-conflict<2>*"; then
+  if buffer_exists "*test-conflict*<2>"; then
     pass "Conflict creates new buffer with <2> suffix"
-    content=$(buffer_content "*test-conflict<2>*")
+    content=$(buffer_content "*test-conflict*<2>")
     if [[ "$content" == *"second"* ]]; then
       pass "Conflicted buffer has correct content"
     else
@@ -373,19 +373,24 @@ else
 fi
 
 # Test 14: Pass-through behavior
-section "Test 9: Pass-through (tee behavior)"
-cleanup_buffer "*test-passthrough*"
-output=$(echo "passthrough test" | $SCRIPT "*test-passthrough*" 2>/dev/null)
+section "Test 9: No Pass-through (standard pipe behavior)"
+cleanup_buffer "*test-nopassthrough*"
+output=$(echo "pipe test" | $SCRIPT "*test-nopassthrough*" 2>/dev/null)
 
-if [[ "$output" == *"passthrough test"* ]]; then
-  pass "Content passes through to stdout"
-  if buffer_exists "*test-passthrough*"; then
-    pass "Content also written to buffer"
+if [[ -z "$output" ]]; then
+  pass "No content passes through to stdout"
+  if buffer_exists "*test-nopassthrough*"; then
+    content=$(buffer_content "*test-nopassthrough*")
+    if [[ "$content" == *"pipe test"* ]]; then
+      pass "Content written to buffer only"
+    else
+      fail "Buffer content incorrect"
+    fi
   else
-    fail "Buffer not created during pass-through"
+    fail "Buffer not created"
   fi
 else
-  fail "Pass-through failed: got '$output'"
+  fail "Unexpected pass-through output: got '$output'"
 fi
 
 # Test 15: Multi-line content

@@ -4,6 +4,16 @@
 
 All notable changes to this project will be documented in this file.
 
+* [0.5.0] - 2025-01-25
+
+** Changed
+- *BREAKING*: Removed pass-through behavior - piping now works like standard Unix pipes
+- Content piped to Emacs no longer echoes to stdout (previously behaved like ~tee~)
+- This makes ~mxp~ behave consistently with normal piping conventions
+
+** Removed
+- Pass-through/tee-like behavior removed from write mode
+
 * [0.4.0] - 2025-01-25
 
 ** Added
@@ -53,7 +63,6 @@ All notable changes to this project will be documented in this file.
 - Buffer matching via regex patterns
 - Append mode (~--append~, ~-a~)
 - Force overwrite mode (~--force~, ~-F~)
-- Pass-through behavior (tee-like)
 - Streaming support with chunked processing
 - Conflict resolution for duplicate buffer names
 - Emacs hook support for custom buffer creation logic

@@ -15,7 +15,6 @@ Pipe content between your terminal and Emacs buffers - seamlessly bridge your co
 - *Streaming*: Real-time content updates with chunked processing
 - *Buffer matching*: Use exact names or regex patterns to find buffers
 - *Auto-generation*: Creates ~*Piper 1*~, ~*Piper 2*~, etc. when no name specified
-- *Pass-through*: Acts like ~tee~ - content flows through to stdout
 - *Conflict handling*: Avoids overwriting buffers unless forced
 
 The script works with both bash and zsh, handles special characters properly, and includes comprehensive error handling.
@@ -141,15 +140,6 @@ mxp -f ".*scratch.*" | wc -l
 
 # Use in command chains
 mxp -f "my-buffer" | sort | uniq | less
-#+end_src
-
-*** Pass-through behavior
-
-Content flows through to stdout, so you can continue piping:
-
-#+begin_src shell
-# Capture to buffer AND pass through
-cat data.txt | mxp "backup" | grep important | mxp "filtered"
 #+end_src
 
 *** Process substitution
