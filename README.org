@@ -74,12 +74,29 @@ Incredibly powerful, but this only works *inside* Eshell - you cannot use it in 
 
 ** Install
 
-Download and put it somewhere in the $PATH
- #+begin_src shell
- curl -fsSL https://raw.githubusercontent.com/agzam/mx-piper/refs/heads/main/mxp -o \
-     ~/.local/bin/mxp \
-     && chmod +x ~/.local/bin/mxp 
-  #+end_src
+*** Package Managers
+
+#+begin_src shell
+# Homebrew (macOS/Linux)
+brew install agzam/tap/mxp
+
+# AUR (Arch Linux)
+yay -S mxp
+
+# Debian/Ubuntu
+wget https://github.com/agzam/emacs-piper/releases/download/v0.4.0/mxp_0.4.0-1_all.deb
+sudo dpkg -i mxp_0.4.0-1_all.deb
+#+end_src
+
+*** Manual Install
+
+#+begin_src shell
+curl -fsSL https://raw.githubusercontent.com/agzam/emacs-piper/main/mxp -o \
+    ~/.local/bin/mxp \
+    && chmod +x ~/.local/bin/mxp 
+#+end_src
+
+See [[file:INSTALL.md][INSTALL.md]] for detailed installation instructions for all platforms.
 
 Make sure Emacs daemon is running and emacsclient works!
 

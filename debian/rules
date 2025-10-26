@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	install -D -m755 mxp $(CURDIR)/debian/mxp/usr/bin/mxp
+	install -D -m644 README.org $(CURDIR)/debian/mxp/usr/share/doc/mxp/README.org
+	install -D -m644 changelog.org $(CURDIR)/debian/mxp/usr/share/doc/mxp/changelog.org
+	install -D -m644 LICENSE $(CURDIR)/debian/mxp/usr/share/doc/mxp/copyright

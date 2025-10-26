@@ -1,0 +1,11 @@
+mxp (0.4.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Open mode: Open files and directories directly in Emacs
+  * Smart detection automatically distinguishes file paths from buffer names
+  * Fixed large buffer reading using temporary files
+  * Fixed multibyte/Unicode character support
+  * Added Makefile for testing
+  * Enhanced test suite
+
+ -- Ag Ibragimov <agzam.ibragimov@gmail.com>  Fri, 25 Jan 2025 22:00:00 +0000

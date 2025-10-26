@@ -1,0 +1,23 @@
+Source: mxp
+Section: utils
+Priority: optional
+Maintainer: Ag Ibragimov <agzam.ibragimov@gmail.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+Homepage: https://github.com/agzam/emacs-piper
+Vcs-Git: https://github.com/agzam/emacs-piper.git
+Vcs-Browser: https://github.com/agzam/emacs-piper
+
+Package: mxp
+Architecture: all
+Depends: ${misc:Depends}, emacs | emacs-nox, bash
+Description: Pipe content between terminal and Emacs buffers
+ mxp is a shell script that acts as a bridge between Unix pipes and Emacs
+ buffers. It supports:
+ .
+  * Write mode: Pipe stdin to Emacs buffers
+  * Read mode: Output buffer content to stdout for piping
+  * Open mode: Open files and directories in Emacs
+  * Streaming: Real-time content updates with chunked processing
+  * Buffer matching: Use exact names or regex patterns
+  * Auto-generation: Creates *Piper 1*, *Piper 2*, etc. when no name specified
