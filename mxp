@@ -407,6 +407,8 @@ write_mode() {
   # Stream content in chunks
   local buffer=""
   local count=0
+  local jobs_count=0
+  local max_concurrent_jobs=5
   local insert_point
   if [ "$prepend" = "true" ]; then
     insert_point="(point-min)"
@@ -419,6 +421,11 @@ write_mode() {
     count=$((count + 1))
     
     if [ $count -ge $CHUNK_SIZE ]; then
+      # Wait if we have too many background jobs
+      while [ $(jobs -r | wc -l | tr -d ' ') -ge $max_concurrent_jobs ]; do
+        sleep 0.01
+      done
+      
       local encoded
       encoded=$(printf '%s' "$buffer" | encode_for_elisp)
       emacsclient --eval "(with-current-buffer \"$buffer_name\"
@@ -428,6 +435,9 @@ write_mode() {
       count=0
     fi
   done
+  
+  # Wait for all background jobs to complete before flushing
+  wait
   
   # Flush remaining buffer
   if [ -n "$buffer" ]; then

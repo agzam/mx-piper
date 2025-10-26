@@ -11,6 +11,11 @@ All notable changes to this project will be documented in this file.
 - Content piped to Emacs no longer echoes to stdout (previously behaved like ~tee~)
 - This makes ~mxp~ behave consistently with normal piping conventions
 
+** Fixed
+- Fixed "Connection refused" errors when streaming large amounts of data
+- Implemented concurrent job limiting (max 5 background processes) to prevent overwhelming Emacs server
+- Streaming now maintains real-time updates while avoiding connection overload
+
 ** Removed
 - Pass-through/tee-like behavior removed from write mode
 
