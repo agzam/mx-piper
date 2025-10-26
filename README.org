@@ -6,6 +6,8 @@
 
 Pipe content between your terminal and Emacs buffers - seamlessly bridge your command-line workflows with your editor.
 
+[[https://www.youtube.com/watch?v=LVlF3-KyqvY][Demo on YouTube, ~12min]]
+
 * What?
 
 ~mxp~ is a shell script that acts as a bridge between Unix pipes and Emacs buffers. It supports:
