@@ -530,7 +530,7 @@ cleanup_buffer "*complete-hook-test*"
 hook_file="/tmp/mxp-test-complete-hook-$$"
 rm -f "$hook_file"
 
-emacsclient --eval "(setq mxp-buffer-complete-hook (lambda () (write-region \"COMPLETE\" nil \"$hook_file\")))" &>/dev/null
+emacsclient --eval "(setq mxp-buffer-complete-hook (lambda (buffer-name) (write-region \"COMPLETE\" nil \"$hook_file\")))" &>/dev/null
 
 # Pipe finite content
 echo -e "line1\nline2\nline3" | $SCRIPT "*complete-hook-test*" &>/dev/null
@@ -554,7 +554,7 @@ cleanup_buffer "*update-hook-test*"
 hook_file="/tmp/mxp-test-update-hook-$$"
 rm -f "$hook_file"
 
-emacsclient --eval "(setq mxp-buffer-update-hook (lambda (start end) (write-region (format \"START:%d END:%d\" start end) nil \"$hook_file\" t)))" &>/dev/null
+emacsclient --eval "(setq mxp-buffer-update-hook (lambda (buffer-name start end) (write-region (format \"START:%d END:%d\" start end) nil \"$hook_file\" t)))" &>/dev/null
 
 # Pipe content
 echo -e "line1\nline2" | $SCRIPT "*update-hook-test*" &>/dev/null

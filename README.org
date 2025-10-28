@@ -156,20 +156,43 @@ diff <(mxp -f "version-1") <(mxp -f "version-2")
 jq . <(mxp -f "*json-data*")
 #+end_src
 
-** Emacs Hook
+** Emacs Hooks
 
-You can define a hook in your Emacs config to run custom logic when buffers are created:
+There are hooks that you can customize:
+
+- ~mxp-buffer-hook~ - runs when the buffer appears.
+  
+  Takes a single argument - ~BUFFER-NAME~.
+  Useful for setting major mode, etc.
+  
+- ~mxp-buffer-update-hook~ - runs whenever there's more data.
+  
+  Arguments: ~BUFFER-NAME~, ~BEGINNING~ and ~END~ positions where buffer gets updated.
+
+- ~mxp-buffer-complete-hook~ - runs at the end.
+  
+  Argument: ~BUFFER-NAME~.
+  May never run for continuous streams.
+
+Examples:
 
 #+begin_src emacs-lisp
-(defun my-mxp-hook (buffer-name)
-  "Custom logic when mxp creates a buffer."
+(defun on-mxp-buffer-h (buffer-name)
   (with-current-buffer buffer-name
-    ;; Auto-enable certain modes, format content, etc.
     (when (string-match ".*\\.json.*" buffer-name)
-      (json-mode)
-      (json-pretty-print-buffer))))
+      (json-mode))))
+(add-hook 'mxp-buffer-hook #'on-mxp-buffer-h)
 
-(setq mxp-buffer-hook #'my-mxp-hook)
+(defun on-mxp-buffer-update-h (buffer-name beg end)
+  (with-current-buffer buffer-name
+    (ansi-color-apply-on-region beg end)))
+(add-hook 'mxp-buffer-update-hook #'on-mxp-buffer-update-h)
+
+(defun on-mxp-buffer-complete-h (buffer-name)
+  (with-current-buffer buffer-name
+    ;; delete all empty lines
+    (flush-lines "^$" (point-min) (point-max))))
+(add-hook 'mxp-buffer-complete-hook #'on-mxp-buffer-complete-h)
 #+end_src
 
 ** Examples
@@ -204,6 +227,9 @@ cat <(mxp -f "header") <(mxp -f "body") | mail -s "Report" user@example.com
 # Edit a file, then pipe its buffer content through a command
 mxp config.yaml                           # Opens in Emacs
 mxp -f config.yaml | yq '.version' -      # Read it back
+
+# Stream some data with a passtrhough (shows results in both the buffer and terminal)
+ping google.com | tee >(mxp)
 #+end_src
 
 
