@@ -70,7 +70,7 @@ Incredibly powerful, but this only works *inside* Eshell - you cannot use it in 
 ** Make sure you have:
 
 - Emacs with ~emacsclient~ (Emacs daemon must be running)
-- bash or zsh
+- bash >= 4.0 or zsh
 - Standard Unix utilities (~base64~, ~grep~, ~sed~)
 
 ** Install

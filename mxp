@@ -6,14 +6,9 @@
 
 set -euo pipefail
 
-VERSION="0.5.0"
+VERSION="0.5.1"
 CHUNK_SIZE=100
-
-# Detect timeout capability - use 0.2s if supported, fallback to 1s
-STREAM_TIMEOUT=1
-if (read -t 0.2 line < /dev/null) 2>/dev/null; then
-  STREAM_TIMEOUT=0.2
-fi
+STREAM_TIMEOUT=0.3
 
 usage() {
   cat << EOF
