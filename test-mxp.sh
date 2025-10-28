@@ -522,6 +522,54 @@ else
   info "Multibyte test skipped (locale/encoding issue)"
 fi
 
+# Test 21: Hook - mxp-buffer-complete-hook
+section "Test 22: Hooks - mxp-buffer-complete-hook"
+cleanup_buffer "*complete-hook-test*"
+
+# Set up a hook that writes to a temp file when complete
+hook_file="/tmp/mxp-test-complete-hook-$$"
+rm -f "$hook_file"
+
+emacsclient --eval "(setq mxp-buffer-complete-hook (lambda (buffer-name) (write-region \"COMPLETE\" nil \"$hook_file\")))" &>/dev/null
+
+# Pipe finite content
+echo -e "line1\nline2\nline3" | $SCRIPT "*complete-hook-test*" &>/dev/null
+
+# Check if hook was called
+if [ -f "$hook_file" ] && grep -q "COMPLETE" "$hook_file"; then
+  pass "mxp-buffer-complete-hook called on EOF"
+else
+  fail "mxp-buffer-complete-hook not called"
+fi
+
+# Cleanup
+rm -f "$hook_file"
+emacsclient --eval "(setq mxp-buffer-complete-hook nil)" &>/dev/null
+
+# Test 23: Hook - mxp-buffer-update-hook with region args
+section "Test 23: Hooks - mxp-buffer-update-hook"
+cleanup_buffer "*update-hook-test*"
+
+# Set up hook that writes region info
+hook_file="/tmp/mxp-test-update-hook-$$"
+rm -f "$hook_file"
+
+emacsclient --eval "(setq mxp-buffer-update-hook (lambda (buffer-name start end) (write-region (format \"START:%d END:%d\" start end) nil \"$hook_file\" t)))" &>/dev/null
+
+# Pipe content
+echo -e "line1\nline2" | $SCRIPT "*update-hook-test*" &>/dev/null
+
+# Check if hook was called with region args
+if [ -f "$hook_file" ] && grep -q "START:" "$hook_file" && grep -q "END:" "$hook_file"; then
+  pass "mxp-buffer-update-hook called with region arguments"
+else
+  fail "mxp-buffer-update-hook not called or missing args"
+fi
+
+# Cleanup
+rm -f "$hook_file"
+emacsclient --eval "(setq mxp-buffer-update-hook nil)" &>/dev/null
+
 # Test 25: Temp file cleanup
 section "Test 20: Temp File Cleanup"
 cleanup_buffer "*cleanup-test*"

@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.5.1"
+VERSION="0.5.2"
 CHUNK_SIZE=100
 STREAM_TIMEOUT=0.3
 
@@ -415,16 +415,20 @@ write_mode() {
       if [ "$total_flushes" -lt 3 ]; then
         # First few flushes: synchronous (prevents issues with &>/dev/null)
         emacsclient --eval "(with-current-buffer \"$buffer_name\"
-          (goto-char $insert_point)
-          (insert (base64-decode-string \"$encoded\")))" >/dev/null 2>&1
+          (let ((start (goto-char $insert_point)))
+            (insert (base64-decode-string \"$encoded\"))
+            (when (boundp 'mxp-buffer-update-hook)
+              (run-hook-with-args 'mxp-buffer-update-hook \"$buffer_name\" start (point)))))" >/dev/null 2>&1
       else
         # Many flushes: use background jobs for performance
         while [ $(jobs -r | wc -l | tr -d ' ') -ge 5 ]; do
           sleep 0.01
         done
         emacsclient --eval "(with-current-buffer \"$buffer_name\"
-          (goto-char $insert_point)
-          (insert (base64-decode-string \"$encoded\")))" >/dev/null 2>&1 &
+          (let ((start (goto-char $insert_point)))
+            (insert (base64-decode-string \"$encoded\"))
+            (when (boundp 'mxp-buffer-update-hook)
+              (run-hook-with-args 'mxp-buffer-update-hook \"$buffer_name\" start (point)))))" >/dev/null 2>&1 &
       fi
       
       accumulated_content=""
@@ -484,10 +488,12 @@ write_mode() {
   # Wait for all background jobs to complete
   wait
   
-  # Run hook
+  # Run hooks
   emacsclient --eval "(with-current-buffer \"$buffer_name\"
     (when (boundp 'mxp-buffer-hook)
-      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\")))" > /dev/null 2>&1
+      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\"))
+    (when (boundp 'mxp-buffer-complete-hook)
+      (run-hook-with-args 'mxp-buffer-complete-hook \"$buffer_name\")))" > /dev/null 2>&1
 }
 main() {
   local mode="write"

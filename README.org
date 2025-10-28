@@ -156,20 +156,36 @@ diff <(mxp -f "version-1") <(mxp -f "version-2")
 jq . <(mxp -f "*json-data*")
 #+end_src
 
-** Emacs Hook
+** Emacs Hooks
 
-You can define a hook in your Emacs config to run custom logic when buffers are created:
+There are hooks that you can customize:
+
+#+HTML: <table>
+#+HTML: <tr><th>Hook</th><td><code>mxp-buffer-hook</code></td><td><code>mxp-buffer-update-hook</code></td><td><code>mxp-buffer-complete-hook</code></td></tr>
+#+HTML: <tr><th>Runs</th><td>when the buffer appears</td><td>whenever there's more data</td><td>at the completion</td></tr>
+#+HTML: <tr><th>Args</th><td><code>BUFFER-NAME</code></td><td><code>BUFFER-NAME</code><br><code>BEGINNING</code> and <code>END</code><br>where buffer gets updated</td><td><code>BUFFER-NAME</code></td></tr>
+#+HTML: <tr><th>Notes</th><td>useful for setting major mode, etc.</td><td></td><td>may never run for continuous streams</td></tr>
+#+HTML: </table>
+
+Examples:
 
 #+begin_src emacs-lisp
-(defun my-mxp-hook (buffer-name)
-  "Custom logic when mxp creates a buffer."
+(defun on-mxp-buffer-h (buffer-name)
   (with-current-buffer buffer-name
-    ;; Auto-enable certain modes, format content, etc.
     (when (string-match ".*\\.json.*" buffer-name)
-      (json-mode)
-      (json-pretty-print-buffer))))
+      (json-mode))))
+(add-hook 'mxp-buffer-hook #'on-mxp-buffer-h)
 
-(setq mxp-buffer-hook #'my-mxp-hook)
+(defun on-mxp-buffer-update-h (buffer-name beg end)
+  (with-current-buffer buffer-name
+    (ansi-color-apply-on-region beg end)))
+(add-hook 'mxp-buffer-update-hook #'on-mxp-buffer-update-h)
+
+(defun on-mxp-buffer-complete-h (buffer-name)
+  (with-current-buffer buffer-name
+    ;; delete all empty lines
+    (flush-lines "^$" (point-min) (point-max))))
+(add-hook 'mxp-buffer-complete-hook #'on-mxp-buffer-complete-h)
 #+end_src
 
 ** Examples
@@ -204,6 +220,9 @@ cat <(mxp -f "header") <(mxp -f "body") | mail -s "Report" user@example.com
 # Edit a file, then pipe its buffer content through a command
 mxp config.yaml                           # Opens in Emacs
 mxp -f config.yaml | yq '.version' -      # Read it back
+
+# Stream some data with a passtrhough (shows results in both the buffer and terminal)
+ping google.com | tee >(mxp)
 #+end_src
 
 
