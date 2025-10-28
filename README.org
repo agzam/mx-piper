@@ -161,10 +161,10 @@ jq . <(mxp -f "*json-data*")
 There are hooks that you can customize:
 
 #+HTML: <table>
-#+HTML: <tr><th>Hook</th><td><code>mxp-buffer-hook</code></td><td><code>mxp-buffer-update-hook</code></td><td><code>mxp-buffer-complete-hook</code></td></tr>
-#+HTML: <tr><th>Runs</th><td>when the buffer appears</td><td>whenever there's more data</td><td>at the completion</td></tr>
-#+HTML: <tr><th>Args</th><td><code>BUFFER-NAME</code></td><td><code>BUFFER-NAME</code><br><code>BEGINNING</code> and <code>END</code><br>where buffer gets updated</td><td><code>BUFFER-NAME</code></td></tr>
-#+HTML: <tr><th>Notes</th><td>useful for setting major mode, etc.</td><td></td><td>may never run for continuous streams</td></tr>
+#+HTML: <tr><th></th><th>Runs</th><th>Args</th><th>Notes</th></tr>
+#+HTML: <tr><td><pre>mxp-buffer-hook</pre></td><td>when the buffer appears</td><td><code>BUFFER-NAME</code></td><td>useful for setting major mode, etc.</td></tr>
+#+HTML: <tr><td><pre>mxp-buffer-update-hook</pre></td><td>whenever there's more data</td><td><code>BUFFER-NAME</code><br><code>BEG-POS</code>,<code>END-POS</code><br>where buffer gets updated</td><td></td></tr>
+#+HTML: <tr><td><pre>mxp-buffer-complete-hook</pre></td><td>at the completion</td><td><code>BUFFER-NAME</code></td><td>may never run for continuous streams</td></tr>
 #+HTML: </table>
 
 Examples:
@@ -178,6 +178,7 @@ Examples:
 
 (defun on-mxp-buffer-update-h (buffer-name beg end)
   (with-current-buffer buffer-name
+    ;; escape color codes - we like colors.
     (ansi-color-apply-on-region beg end)))
 (add-hook 'mxp-buffer-update-hook #'on-mxp-buffer-update-h)
 
