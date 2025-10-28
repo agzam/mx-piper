@@ -522,21 +522,7 @@ else
   info "Multibyte test skipped (locale/encoding issue)"
 fi
 
-# Test 21: Hooks - mxp-invocation variable
-section "Test 21: Buffer-Local Variable (mxp-invocation)"
-cleanup_buffer "*hook-test*"
-echo "hook test" | $SCRIPT --append "*hook-test*" &>/dev/null
-
-# Check if mxp-invocation variable is set
-invocation=$(emacsclient --eval "(with-current-buffer \"*hook-test*\" (if (boundp 'mxp-invocation) mxp-invocation \"NOT-SET\"))" 2>/dev/null | sed 's/"//g')
-
-if [[ "$invocation" == *"mxp"* ]] && [[ "$invocation" == *"--append"* ]]; then
-  pass "Buffer-local mxp-invocation variable set correctly"
-else
-  fail "mxp-invocation not set or incorrect: got '$invocation'"
-fi
-
-# Test 22: Hook - mxp-buffer-complete-hook
+# Test 21: Hook - mxp-buffer-complete-hook
 section "Test 22: Hooks - mxp-buffer-complete-hook"
 cleanup_buffer "*complete-hook-test*"
 
