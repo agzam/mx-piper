@@ -160,19 +160,12 @@ jq . <(mxp -f "*json-data*")
 
 There are hooks that you can customize:
 
-- ~mxp-buffer-hook~ - runs when the buffer appears.
-  
-  Takes a single argument - ~BUFFER-NAME~.
-  Useful for setting major mode, etc.
-  
-- ~mxp-buffer-update-hook~ - runs whenever there's more data.
-  
-  Arguments: ~BUFFER-NAME~, ~BEGINNING~ and ~END~ positions where buffer gets updated.
-
-- ~mxp-buffer-complete-hook~ - runs at the end.
-  
-  Argument: ~BUFFER-NAME~.
-  May never run for continuous streams.
+#+HTML: <table>
+#+HTML: <tr><th>Hook</th><td><code>mxp-buffer-hook</code></td><td><code>mxp-buffer-update-hook</code></td><td><code>mxp-buffer-complete-hook</code></td></tr>
+#+HTML: <tr><th>Runs</th><td>when the buffer appears</td><td>whenever there's more data</td><td>at the completion</td></tr>
+#+HTML: <tr><th>Args</th><td><code>BUFFER-NAME</code></td><td><code>BUFFER-NAME</code><br><code>BEGINNING</code> and <code>END</code><br>where buffer gets updated</td><td><code>BUFFER-NAME</code></td></tr>
+#+HTML: <tr><th>Notes</th><td>useful for setting major mode, etc.</td><td></td><td>may never run for continuous streams</td></tr>
+#+HTML: </table>
 
 Examples:
 
