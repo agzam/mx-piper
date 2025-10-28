@@ -366,6 +366,13 @@ write_mode() {
   
   check_emacsclient
   
+  # Build invocation string for buffer-local variable
+  local invocation="mxp"
+  [ "$append" = "true" ] && invocation="$invocation --append"
+  [ "$prepend" = "true" ] && invocation="$invocation --prepend"
+  [ "$force" = "true" ] && invocation="$invocation --force"
+  [ -n "$buffer_pattern" ] && invocation="$invocation \"$buffer_pattern\""
+  
   local buffer_name
   if [ -z "$buffer_pattern" ]; then
     buffer_name=$(generate_buffer_name)
@@ -402,8 +409,10 @@ write_mode() {
       nil)" > /dev/null 2>&1
   fi
   
-  # Display buffer
-  emacsclient --eval "(display-buffer \"$buffer_name\")" > /dev/null 2>&1
+  # Display buffer and set buffer-local variable
+  emacsclient --eval "(with-current-buffer \"$buffer_name\"
+    (setq-local mxp-invocation \"$invocation\")
+    (display-buffer \"$buffer_name\"))" > /dev/null 2>&1
   
   # Helper function to flush accumulated content to Emacs
   flush_to_emacs() {
@@ -415,16 +424,20 @@ write_mode() {
       if [ "$total_flushes" -lt 3 ]; then
         # First few flushes: synchronous (prevents issues with &>/dev/null)
         emacsclient --eval "(with-current-buffer \"$buffer_name\"
-          (goto-char $insert_point)
-          (insert (base64-decode-string \"$encoded\")))" >/dev/null 2>&1
+          (let ((start (goto-char $insert_point)))
+            (insert (base64-decode-string \"$encoded\"))
+            (when (boundp 'mxp-buffer-update-hook)
+              (run-hook-with-args 'mxp-buffer-update-hook start (point)))))" >/dev/null 2>&1
       else
         # Many flushes: use background jobs for performance
         while [ $(jobs -r | wc -l | tr -d ' ') -ge 5 ]; do
           sleep 0.01
         done
         emacsclient --eval "(with-current-buffer \"$buffer_name\"
-          (goto-char $insert_point)
-          (insert (base64-decode-string \"$encoded\")))" >/dev/null 2>&1 &
+          (let ((start (goto-char $insert_point)))
+            (insert (base64-decode-string \"$encoded\"))
+            (when (boundp 'mxp-buffer-update-hook)
+              (run-hook-with-args 'mxp-buffer-update-hook start (point)))))" >/dev/null 2>&1 &
       fi
       
       accumulated_content=""
@@ -484,10 +497,12 @@ write_mode() {
   # Wait for all background jobs to complete
   wait
   
-  # Run hook
+  # Run hooks
   emacsclient --eval "(with-current-buffer \"$buffer_name\"
     (when (boundp 'mxp-buffer-hook)
-      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\")))" > /dev/null 2>&1
+      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\"))
+    (when (boundp 'mxp-buffer-complete-hook)
+      (run-hooks 'mxp-buffer-complete-hook)))" > /dev/null 2>&1
 }
 main() {
   local mode="write"
