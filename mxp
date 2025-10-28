@@ -9,6 +9,12 @@ set -euo pipefail
 VERSION="0.5.0"
 CHUNK_SIZE=100
 
+# Detect timeout capability - use 0.2s if supported, fallback to 1s
+STREAM_TIMEOUT=1
+if (read -t 0.2 line < /dev/null) 2>/dev/null; then
+  STREAM_TIMEOUT=0.2
+fi
+
 usage() {
   cat << EOF
 mxp v${VERSION} - Pipe content between terminal and Emacs buffers
@@ -390,25 +396,52 @@ write_mode() {
   if [ "$append" = "true" ]; then
     emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
       (goto-char (point-max))
-      nil)" > /dev/null
+      nil)" > /dev/null 2>&1
   elif [ "$prepend" = "true" ]; then
     emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
       (goto-char (point-min))
-      nil)" > /dev/null
+      nil)" > /dev/null 2>&1
   else
     emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
       (erase-buffer)
-      nil)" > /dev/null
+      nil)" > /dev/null 2>&1
   fi
   
   # Display buffer
-  emacsclient --eval "(display-buffer \"$buffer_name\")" > /dev/null
+  emacsclient --eval "(display-buffer \"$buffer_name\")" > /dev/null 2>&1
   
-  # Stream content in chunks
-  local buffer=""
-  local count=0
-  local jobs_count=0
-  local max_concurrent_jobs=5
+  # Helper function to flush accumulated content to Emacs
+  flush_to_emacs() {
+    if [ -n "$accumulated_content" ] && [ "$line_count" -gt 0 ]; then
+      local encoded
+      encoded=$(printf '%s' "$accumulated_content" | encode_for_elisp)
+      
+      # Send synchronously for small chunks, async for large streams
+      if [ "$total_flushes" -lt 3 ]; then
+        # First few flushes: synchronous (prevents issues with &>/dev/null)
+        emacsclient --eval "(with-current-buffer \"$buffer_name\"
+          (goto-char $insert_point)
+          (insert (base64-decode-string \"$encoded\")))" >/dev/null 2>&1
+      else
+        # Many flushes: use background jobs for performance
+        while [ $(jobs -r | wc -l | tr -d ' ') -ge 5 ]; do
+          sleep 0.01
+        done
+        emacsclient --eval "(with-current-buffer \"$buffer_name\"
+          (goto-char $insert_point)
+          (insert (base64-decode-string \"$encoded\")))" >/dev/null 2>&1 &
+      fi
+      
+      accumulated_content=""
+      line_count=0
+      total_flushes=$((total_flushes + 1))
+    fi
+  }
+  
+  # Stream content in chunks with timeout-based flushing
+  local accumulated_content=""
+  local line_count=0
+  local total_flushes=0
   local insert_point
   if [ "$prepend" = "true" ]; then
     insert_point="(point-min)"
@@ -416,44 +449,51 @@ write_mode() {
     insert_point="(point-max)"
   fi
   
-  while IFS= read -r line || [ -n "$line" ]; do
-    buffer+="$line"$'\n'
-    count=$((count + 1))
+  local line
+  local read_status
+  
+  # Main reading loop with timeout-based flushing
+  while true; do
+    # Temporarily disable set -e for the read command
+    set +e
+    IFS= read -r -t $STREAM_TIMEOUT line
+    read_status=$?
+    set -e
     
-    if [ $count -ge $CHUNK_SIZE ]; then
-      # Wait if we have too many background jobs
-      while [ $(jobs -r | wc -l | tr -d ' ') -ge $max_concurrent_jobs ]; do
-        sleep 0.01
-      done
+    # Handle read result
+    # 0 = success, 1 = EOF, >128 = timeout
+    if [ $read_status -eq 0 ]; then
+      # Successfully read a line
+      accumulated_content+="$line"$'\n'
+      line_count=$((line_count + 1))
       
-      local encoded
-      encoded=$(printf '%s' "$buffer" | encode_for_elisp)
-      emacsclient --eval "(with-current-buffer \"$buffer_name\"
-        (goto-char $insert_point)
-        (insert (base64-decode-string \"$encoded\")))" > /dev/null &
-      buffer=""
-      count=0
+      # Flush if we've accumulated enough lines
+      if [ $line_count -ge $CHUNK_SIZE ]; then
+        flush_to_emacs
+      fi
+    elif [ $read_status -gt 128 ]; then
+      # Timeout - flush whatever we have and continue reading
+      flush_to_emacs
+    else
+      # EOF - handle last line without newline if it exists
+      if [ -n "$line" ]; then
+        accumulated_content+="$line"$'\n'
+        line_count=$((line_count + 1))
+      fi
+      # Flush remaining content and exit
+      flush_to_emacs
+      break
     fi
   done
   
-  # Wait for all background jobs to complete before flushing
+  # Wait for all background jobs to complete
   wait
-  
-  # Flush remaining buffer
-  if [ -n "$buffer" ]; then
-    local encoded
-    encoded=$(printf '%s' "$buffer" | encode_for_elisp)
-    emacsclient --eval "(with-current-buffer \"$buffer_name\"
-      (goto-char $insert_point)
-      (insert (base64-decode-string \"$encoded\")))" > /dev/null
-  fi
   
   # Run hook
   emacsclient --eval "(with-current-buffer \"$buffer_name\"
     (when (boundp 'mxp-buffer-hook)
-      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\")))" > /dev/null
+      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\")))" > /dev/null 2>&1
 }
-
 main() {
   local mode="write"
   local buffer_pattern=""
