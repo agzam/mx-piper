@@ -73,13 +73,13 @@ Incredibly powerful, but this only works *inside* Eshell - you cannot use it in 
 
 ** Make sure you have:
 
-- Emacs with ~emacsclient~ ([[https://www.gnu.org/software/emacs/manual/html_node/emacs/Emacs-Server.html][Emacs daemon]] must be running)
+- Emacs with ~emacsclient~ in the ~$PATH~ - [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Emacs-Server.html][Emacs daemon]] must be running
 - bash >= 4.0 or zsh
 - Standard Unix utilities (~base64~, ~grep~, ~sed~)
 
 ** Install
 
-Download and put it somewhere in the $PATH
+Download and put it somewhere in the ~$PATH~
  #+begin_src shell
  curl -fsSL https://raw.githubusercontent.com/agzam/mx-piper/refs/heads/main/mxp -o \
      ~/.local/bin/mxp \
