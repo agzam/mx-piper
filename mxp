@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.5.2"
+VERSION="0.5.3"
 CHUNK_SIZE=100
 STREAM_TIMEOUT=0.3
 
@@ -415,8 +415,9 @@ write_mode() {
       if [ "$total_flushes" -lt 3 ]; then
         # First few flushes: synchronous (prevents issues with &>/dev/null)
         emacsclient --eval "(with-current-buffer \"$buffer_name\"
-          (let ((start (goto-char $insert_point)))
-            (insert (base64-decode-string \"$encoded\"))
+          (let ((start (goto-char $insert_point))
+                (dstr (decode-coding-string (base64-decode-string \"$encoded\") 'utf-8)))
+            (insert dstr)
             (when (boundp 'mxp-buffer-update-hook)
               (run-hook-with-args 'mxp-buffer-update-hook \"$buffer_name\" start (point)))))" >/dev/null 2>&1
       else
@@ -425,8 +426,9 @@ write_mode() {
           sleep 0.01
         done
         emacsclient --eval "(with-current-buffer \"$buffer_name\"
-          (let ((start (goto-char $insert_point)))
-            (insert (base64-decode-string \"$encoded\"))
+          (let ((start (goto-char $insert_point))
+                (dstr (decode-coding-string (base64-decode-string \"$encoded\") 'utf-8)))
+            (insert dstr)
             (when (boundp 'mxp-buffer-update-hook)
               (run-hook-with-args 'mxp-buffer-update-hook \"$buffer_name\" start (point)))))" >/dev/null 2>&1 &
       fi

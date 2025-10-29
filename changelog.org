@@ -3,7 +3,9 @@
 #+DATE: 2025
 
 All notable changes to this project will be documented in this file.
-
+* [0.5.3] - 2025-10-29
+- Correctly handles emojis and other utf-8 chars
+  
 * [0.5.2] - 2025-10-27
 - Additional hooks
 
