@@ -21,6 +21,10 @@ Pipe content between your terminal and Emacs buffers - seamlessly bridge your co
 
 The script works with both bash and zsh, handles special characters properly, and includes comprehensive error handling.
 
+** Do not confuse it with similarly named emacs-piper 
+
+Howard Abram's [[https://gitlab.com/howardabrams/emacs-piper][emacs-piper]] project although has similarities, it works differently and has different goals.
+
 * Why?
 
 - Pipe command output directly into Emacs buffers for comfortable viewing
