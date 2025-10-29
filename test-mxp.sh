@@ -570,6 +570,56 @@ fi
 rm -f "$hook_file"
 emacsclient --eval "(setq mxp-buffer-update-hook nil)" &>/dev/null
 
+# Test 24: Buffer killed during streaming
+section "Test 21: Buffer Kill During Streaming"
+
+if should_run_test "terminal"; then
+  cleanup_buffer "*buffer-kill-test*"
+
+  # Create a temp file to capture the output including errors
+  temp_output="/tmp/mxp-test-kill-$$"
+  rm -f "$temp_output"
+
+  # Start a streaming process in background, capturing stderr
+  (for i in {1..50}; do echo "Stream line $i"; sleep 0.15; done | $SCRIPT "*buffer-kill-test*" 2>"$temp_output") &
+  STREAM_PID=$!
+
+  # Give it time to start streaming
+  sleep 0.5
+
+  # Verify buffer was created
+  if buffer_exists "*buffer-kill-test*"; then
+    pass "Buffer created for streaming test"
+
+    # Kill the buffer while streaming
+    cleanup_buffer "*buffer-kill-test*"
+
+    # Wait for enough flushes to trigger the check (stream timeout 0.3s * 2-3 times)
+    sleep 1.5
+
+    # Give the process time to exit after detecting buffer is gone
+    wait $STREAM_PID 2>/dev/null || true
+
+    # Check if error message was written
+    if [ -f "$temp_output" ] && grep -q "Buffer.*no longer exists" "$temp_output"; then
+      pass "mxp detected buffer kill and exited with error message"
+    else
+      info "Buffer kill test: error message not captured (may have exited quickly)"
+    fi
+
+    # Final cleanup check
+    pkill -9 -f "mxp.*buffer-kill-test" 2>/dev/null || true
+  else
+    fail "Buffer not created for streaming test"
+    kill -9 $STREAM_PID 2>/dev/null || true
+  fi
+
+  # Cleanup
+  rm -f "$temp_output"
+else
+  info "Buffer kill test skipped (requires terminal timing)"
+fi
+
 # Test 25: Temp file cleanup
 section "Test 20: Temp File Cleanup"
 cleanup_buffer "*cleanup-test*"

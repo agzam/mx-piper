@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.5.3"
+VERSION="0.5.4"
 CHUNK_SIZE=100
 STREAM_TIMEOUT=0.3
 

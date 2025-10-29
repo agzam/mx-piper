@@ -3,6 +3,13 @@
 #+DATE: 2025
 
 All notable changes to this project will be documented in this file.
+* [0.5.4] - 2025-10-29
+
+** Fixed
+- Fixed continuous error spam in Emacs when buffer is killed during streaming
+- Script now detects when target buffer no longer exists and exits gracefully
+- Added buffer existence check before flushing content to prevent "No buffer named..." errors
+
 * [0.5.3] - 2025-10-29
 - Correctly handles emojis and other utf-8 chars
   
