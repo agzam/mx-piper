@@ -408,9 +408,15 @@ write_mode() {
   # Helper function to flush accumulated content to Emacs
   flush_to_emacs() {
     if [ -n "$accumulated_content" ] && [ "$line_count" -gt 0 ]; then
+      # Check if buffer still exists before attempting to write
+      if ! emacsclient --eval "(buffer-live-p (get-buffer \"$buffer_name\"))" 2>/dev/null | grep -q 't'; then
+        echo "Error: Buffer '$buffer_name' no longer exists. Exiting." >&2
+        exit 1
+      fi
+
       local encoded
       encoded=$(printf '%s' "$accumulated_content" | encode_for_elisp)
-      
+
       # Send synchronously for small chunks, async for large streams
       if [ "$total_flushes" -lt 3 ]; then
         # First few flushes: synchronous (prevents issues with &>/dev/null)
@@ -432,7 +438,7 @@ write_mode() {
             (when (boundp 'mxp-buffer-update-hook)
               (run-hook-with-args 'mxp-buffer-update-hook \"$buffer_name\" start (point)))))" >/dev/null 2>&1 &
       fi
-      
+
       accumulated_content=""
       line_count=0
       total_flushes=$((total_flushes + 1))
