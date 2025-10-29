@@ -69,7 +69,7 @@ Incredibly powerful, but this only works *inside* Eshell - you cannot use it in 
 
 ** Make sure you have:
 
-- Emacs with ~emacsclient~ (Emacs daemon must be running)
+- Emacs with ~emacsclient~ ([[https://www.gnu.org/software/emacs/manual/html_node/emacs/Emacs-Server.html][Emacs daemon]] must be running)
 - bash >= 4.0 or zsh
 - Standard Unix utilities (~base64~, ~grep~, ~sed~)
 
@@ -82,7 +82,7 @@ Download and put it somewhere in the $PATH
      && chmod +x ~/.local/bin/mxp 
   #+end_src
 
-Make sure Emacs daemon is running and emacsclient works!
+Make sure [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Emacs-Server.html][Emacs daemon]] is running and emacsclient works!
 
 ** Use
 
@@ -167,7 +167,7 @@ There are hooks that you can customize:
 #+HTML: <tr><td><pre>mxp-buffer-complete-hook</pre></td><td>at the completion</td><td><code>BUFFER-NAME</code></td><td>may never run for continuous streams</td></tr>
 #+HTML: </table>
 
-Examples:
+Hook examples:
 
 #+begin_src emacs-lisp
 (defun on-mxp-buffer-h (buffer-name)
@@ -176,9 +176,11 @@ Examples:
       (json-mode))))
 (add-hook 'mxp-buffer-hook #'on-mxp-buffer-h)
 
+;; This is how you can re-apply colors. I don't want to make escape
+;; color code processing built into the script itself. It's better to
+;; keep that customizable.
 (defun on-mxp-buffer-update-h (buffer-name beg end)
   (with-current-buffer buffer-name
-    ;; escape color codes - we like colors.
     (ansi-color-apply-on-region beg end)))
 (add-hook 'mxp-buffer-update-hook #'on-mxp-buffer-update-h)
 
@@ -189,19 +191,17 @@ Examples:
 (add-hook 'mxp-buffer-complete-hook #'on-mxp-buffer-complete-h)
 #+end_src
 
-** Examples
+** Usage examples
 
 #+begin_src shell
 # Quick file/directory access
-mxp config.json          # Open config file
-mxp .                    # Browse current directory in dired
-mxp ~/Documents          # Open Documents folder
+mxp config.json          
+mxp .                    
+mxp ~/Documents          
+mxp $HOME          
 
 # Watch build logs in Emacs
 npm run build | mxp "build-logs"
-
-# Capture git diff for review
-git diff | mxp "review"
 
 # Send curl output to Emacs for inspection
 curl -s "https://api.thedogapi.com/v1/breeds" | jq | mxp "breeds"
@@ -215,7 +215,7 @@ mxp -f "*scratch*" | grep TODO > todos.txt
 date | mxp --prepend "logs"
 tail -f app.log | mxp --append "logs"
 
-# Pipe multiple buffers together
+# Stitch multiple buffers together
 cat <(mxp -f "header") <(mxp -f "body") | mail -s "Report" user@example.com
 
 # Edit a file, then pipe its buffer content through a command
@@ -230,5 +230,3 @@ ping google.com | tee >(mxp)
 ** [[file:changelog.org][Changelog]] & [[file:LICENSE][License]]
 
 #+HTML: <small>Copyright © 2025 Ag Ibragimov <agzam.ibragimov@gmail.com></small>
-
-
