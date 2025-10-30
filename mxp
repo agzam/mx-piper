@@ -1,0 +1,585 @@
+#!/usr/bin/env bash
+
+# mxp - Pipe content between terminal and Emacs buffers
+# Copyright (c) 2025 Ag Ibragimov <agzam.ibragimov@gmail.com>
+# Licensed under the MIT License. See LICENSE file for details.
+
+set -euo pipefail
+
+VERSION="0.5.4"
+CHUNK_SIZE=100
+STREAM_TIMEOUT=0.3
+
+usage() {
+  cat << EOF
+mxp v${VERSION} - Pipe content between terminal and Emacs buffers
+
+USAGE:
+  # Write to Emacs (from stdin)
+  cat file.txt | mxp [OPTIONS] [BUFFER-NAME]
+  
+  # Read from Emacs (to stdout)
+  mxp --from BUFFER-NAME [OPTIONS]
+  mxp -f BUFFER-NAME [OPTIONS]
+  
+  # Open file or directory in Emacs
+  mxp FILE-OR-DIRECTORY
+
+OPTIONS:
+  -f, --from BUFFER     Read from buffer (name or regex) and output to stdout
+  -a, --append          Append to buffer instead of replacing content
+  -p, --prepend         Prepend to buffer (insert at the beginning)
+  -F, --force           Overwrite existing buffer (skip conflict resolution)
+  -h, --help            Show this help message
+  -v, --version         Show version
+  --update              Update mxp to the latest version from GitHub
+
+EXAMPLES:
+  # Pipe command output to new/generated buffer
+  tail -f app.log | mxp
+  
+  # Pipe to specific buffer
+  cat data.txt | mxp "my-buffer"
+  
+  # Pipe to first matching buffer (regex)
+  echo "data" | mxp "mybuf.*"
+  
+  # Append to buffer
+  echo "more data" | mxp --append "my-buffer"
+  
+  # Prepend to buffer (insert at the top)
+  echo "header" | mxp --prepend "my-buffer"
+  
+  # Read buffer content to stdout
+  mxp --from "my-buffer"
+  
+  # Pipe buffer content to another command
+  mxp --from "my-buffer" | grep error
+  
+  # Use regex to match buffer
+  mxp -f "\\*scratch\\*" | wc -l
+  
+  # Open files and directories
+  mxp my-file.txt
+  mxp .
+  mxp ~/Projects
+  mxp /path/to/file
+
+NOTES:
+  - Smart detection: automatically detects files/directories vs buffer names
+    - Paths with /, ~, . or existing on filesystem → open in Emacs
+    - Everything else → treated as buffer name
+  - Buffer names support regex patterns for matching
+  - Auto-generates buffer names like "*Piper 1*" when none specified
+  - Hook: Define 'mxp-buffer-hook' in Emacs to run on buffer creation
+  - Requires emacsclient (Emacs daemon must be running)
+
+EOF
+  exit 0
+}
+
+die() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+# Find the actual script location, resolving symlinks
+find_script_location() {
+  local script="$0"
+  
+  # Try different methods to resolve symlinks (cross-platform)
+  if command -v readlink &> /dev/null; then
+    # GNU readlink (Linux)
+    if readlink -f "$script" &> /dev/null; then
+      readlink -f "$script"
+      return
+    fi
+    # Try macOS readlink (doesn't have -f)
+    while [ -L "$script" ]; do
+      script=$(readlink "$script")
+    done
+  fi
+  
+  # Fallback to realpath if available
+  if command -v realpath &> /dev/null; then
+    realpath "$script"
+    return
+  fi
+  
+  # Last resort: use cd/pwd trick
+  local dir=$(dirname "$script")
+  local base=$(basename "$script")
+  (cd "$dir" && echo "$(pwd)/$base")
+}
+
+# Check for updates by comparing local and remote versions
+check_for_updates() {
+  local remote_url="https://raw.githubusercontent.com/agzam/mxp/main/mxp"
+  
+  echo "Checking for updates..." >&2
+  
+  # Fetch remote version
+  local remote_version
+  remote_version=$(curl -fsSL "$remote_url" | grep -m1 '^VERSION=' | cut -d'"' -f2)
+  
+  if [ -z "$remote_version" ]; then
+    die "Failed to fetch remote version"
+  fi
+  
+  echo "$remote_version"
+}
+
+# Self-update the script
+self_update() {
+  local script_path
+  script_path=$(find_script_location)
+  
+  if [ ! -w "$script_path" ]; then
+    die "Cannot write to $script_path. Try running with sudo or check permissions."
+  fi
+  
+  local remote_url="https://raw.githubusercontent.com/agzam/mxp/main/mxp"
+  local temp_file
+  temp_file=$(mktemp)
+  
+  echo "Downloading latest version from GitHub..."
+  
+  # Download to temp file
+  if ! curl -fsSL "$remote_url" -o "$temp_file"; then
+    rm -f "$temp_file"
+    die "Failed to download update"
+  fi
+  
+  # Verify it's a valid bash script
+  if ! head -n1 "$temp_file" | grep -q '^#!/.*bash'; then
+    rm -f "$temp_file"
+    die "Downloaded file doesn't appear to be a valid bash script"
+  fi
+  
+  # Extract remote version
+  local new_version
+  new_version=$(grep -m1 '^VERSION=' "$temp_file" | cut -d'"' -f2)
+  
+  if [ -z "$new_version" ]; then
+    rm -f "$temp_file"
+    die "Could not determine version of downloaded file"
+  fi
+  
+  # Check if already up to date
+  if [ "$new_version" = "$VERSION" ]; then
+    rm -f "$temp_file"
+    echo "Already up to date (v${VERSION})"
+    exit 0
+  fi
+  
+  # Backup current version
+  local backup="${script_path}.backup"
+  echo "Backing up current version to ${backup}"
+  cp "$script_path" "$backup"
+  
+  # Replace with new version
+  echo "Installing v${new_version} (current: v${VERSION})"
+  if ! mv "$temp_file" "$script_path"; then
+    rm -f "$temp_file"
+    die "Failed to install update"
+  fi
+  
+  # Preserve executable permissions
+  chmod +x "$script_path"
+  
+  echo "Successfully updated to v${new_version}!"
+  echo "Backup saved at: ${backup}"
+}
+
+check_emacsclient() {
+  if ! command -v emacsclient &> /dev/null; then
+    die "emacsclient not found. Please install Emacs."
+  fi
+  
+  if ! emacsclient --eval "t" &> /dev/null; then
+    die "Cannot connect to Emacs server. Start Emacs daemon with: emacs --daemon"
+  fi
+}
+
+# Detect if argument is a file/directory path (vs buffer name)
+is_path() {
+  local arg="$1"
+  
+  # Empty argument is not a path
+  [ -z "$arg" ] && return 1
+  
+  # Exists on filesystem
+  [ -e "$arg" ] && return 0
+  
+  # Starts with ~, /, or .
+  [[ "$arg" =~ ^[~/.] ]] && return 0
+  
+  # Contains / (relative or absolute path)
+  [[ "$arg" == */* ]] && return 0
+  
+  # Otherwise, treat as buffer name
+  return 1
+}
+
+# Escape string for elisp (using base64 to avoid escaping hell)
+encode_for_elisp() {
+  # Use -w 0 on Linux (GNU) or plain on macOS (BSD)
+  if base64 --help 2>&1 | grep -q 'wrap'; then
+    base64 -w 0
+  else
+    base64 | tr -d '\n'
+  fi
+}
+
+# Find buffer by name or regex pattern (returns buffer name, not object)
+find_buffer() {
+  local pattern="$1"
+  emacsclient --eval "(let ((buf (or (get-buffer \"$pattern\")
+                                      (car (seq-filter (lambda (b)
+                                                        (string-match-p \"$pattern\" (buffer-name b)))
+                                                      (buffer-list))))))
+                        (when buf (buffer-name buf)))" 2>/dev/null | sed 's/"//g' | grep -v '^nil$' || echo ""
+}
+
+# Generate unique buffer name
+generate_buffer_name() {
+  local base="*Piper"
+  local num=1
+  local name
+  
+  while true; do
+    name="$base $num*"
+    if ! emacsclient --eval "(buffer-live-p (get-buffer \"$name\"))" 2>/dev/null | grep -q 't'; then
+      echo "$name"
+      return
+    fi
+    ((num++))
+  done
+}
+
+# Resolve buffer name conflicts
+resolve_buffer_name() {
+  local requested="$1"
+  local force="$2"
+  
+  # Check if buffer exists
+  local existing
+  existing=$(find_buffer "$requested")
+  
+  if [ -z "$existing" ]; then
+    # No conflict
+    echo "$requested"
+    return
+  fi
+  
+  if [ "$force" = "true" ]; then
+    # Force overwrite
+    echo "$existing"
+    return
+  fi
+  
+  # Generate unique name with suffix
+  local base="$requested"
+  local num=2
+  local candidate
+  
+  while true; do
+    candidate="${base}<${num}>"
+    if ! emacsclient --eval "(buffer-live-p (get-buffer \"$candidate\"))" 2>/dev/null | grep -q 't'; then
+      echo "$candidate"
+      return
+    fi
+    num=$((num + 1))
+  done
+}
+
+# Read mode: output buffer content to stdout
+read_mode() {
+  local pattern="$1"
+  
+  check_emacsclient
+  
+  local buffer
+  buffer=$(find_buffer "$pattern")
+  
+  if [ -z "$buffer" ]; then
+    die "No buffer matching '$pattern' found"
+  fi
+  
+  # Get buffer content via temporary file (avoids emacsclient output limits and base64 overhead)
+  local temp_file
+  temp_file=$(mktemp)
+  
+  # Ensure cleanup on exit/interrupt
+  trap "rm -f '$temp_file'" EXIT INT TERM
+  
+  # Write buffer to temp file with explicit UTF-8 encoding to avoid prompts
+  if ! emacsclient --eval "(let ((coding-system-for-write 'utf-8))
+    (with-current-buffer \"$buffer\"
+      (write-region (point-min) (point-max) \"$temp_file\" nil 'quiet)))" > /dev/null 2>&1; then
+    die "Failed to read buffer '$buffer'"
+  fi
+  
+  # Output content (trap will cleanup)
+  cat "$temp_file"
+}
+
+# Open mode: open file or directory in Emacs
+open_mode() {
+  local path="$1"
+  
+  check_emacsclient
+  
+  # Expand ~ to home directory if needed
+  if [[ "$path" == "~"* ]]; then
+    path="${path/#\~/$HOME}"
+  fi
+  
+  # Convert to absolute path
+  if [[ "$path" != /* ]]; then
+    path="$(cd "$(dirname "$path")" 2>/dev/null && pwd)/$(basename "$path")"
+  fi
+  
+  # Check if path exists
+  if [ ! -e "$path" ]; then
+    die "Path does not exist: $path"
+  fi
+  
+  # Open in Emacs (no-wait mode)
+  if [ -d "$path" ]; then
+    # Directory - open in dired
+    emacsclient -n "$path" &>/dev/null
+    echo "Opened directory in Emacs: $path"
+  else
+    # File - open with find-file
+    emacsclient -n "$path" &>/dev/null
+    echo "Opened file in Emacs: $path"
+  fi
+}
+
+# Write mode: pipe stdin to buffer
+write_mode() {
+  local buffer_pattern="$1"
+  local append="$2"
+  local prepend="$3"
+  local force="$4"
+  
+  check_emacsclient
+  
+  local buffer_name
+  if [ -z "$buffer_pattern" ]; then
+    buffer_name=$(generate_buffer_name)
+  else
+    # Try to find existing buffer if it's a pattern
+    local existing
+    existing=$(find_buffer "$buffer_pattern")
+    
+    if [ -n "$existing" ]; then
+      if [ "$force" = "true" ] || [ "$append" = "true" ] || [ "$prepend" = "true" ]; then
+        # Use existing buffer if forcing, appending, or prepending
+        buffer_name="$existing"
+      else
+        # Create new buffer with suffix to avoid conflict
+        buffer_name=$(resolve_buffer_name "$buffer_pattern" "$force")
+      fi
+    else
+      buffer_name="$buffer_pattern"
+    fi
+  fi
+  
+  # Create/prepare buffer
+  if [ "$append" = "true" ]; then
+    emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
+      (goto-char (point-max))
+      nil)" > /dev/null 2>&1
+  elif [ "$prepend" = "true" ]; then
+    emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
+      (goto-char (point-min))
+      nil)" > /dev/null 2>&1
+  else
+    emacsclient --eval "(with-current-buffer (get-buffer-create \"$buffer_name\")
+      (erase-buffer)
+      nil)" > /dev/null 2>&1
+  fi
+  
+  # Display buffer
+  emacsclient --eval "(display-buffer \"$buffer_name\")" > /dev/null 2>&1
+  
+  # Helper function to flush accumulated content to Emacs
+  flush_to_emacs() {
+    if [ -n "$accumulated_content" ] && [ "$line_count" -gt 0 ]; then
+      # Check if buffer still exists before attempting to write
+      if ! emacsclient --eval "(buffer-live-p (get-buffer \"$buffer_name\"))" 2>/dev/null | grep -q 't'; then
+        echo "Error: Buffer '$buffer_name' no longer exists. Exiting." >&2
+        exit 1
+      fi
+
+      local encoded
+      encoded=$(printf '%s' "$accumulated_content" | encode_for_elisp)
+
+      # Send synchronously for small chunks, async for large streams
+      if [ "$total_flushes" -lt 3 ]; then
+        # First few flushes: synchronous (prevents issues with &>/dev/null)
+        emacsclient --eval "(with-current-buffer \"$buffer_name\"
+          (let ((start (goto-char $insert_point))
+                (dstr (decode-coding-string (base64-decode-string \"$encoded\") 'utf-8)))
+            (insert dstr)
+            (when (boundp 'mxp-buffer-update-hook)
+              (run-hook-with-args 'mxp-buffer-update-hook \"$buffer_name\" start (point)))))" >/dev/null 2>&1
+      else
+        # Many flushes: use background jobs for performance
+        while [ $(jobs -r | wc -l | tr -d ' ') -ge 5 ]; do
+          sleep 0.01
+        done
+        emacsclient --eval "(with-current-buffer \"$buffer_name\"
+          (let ((start (goto-char $insert_point))
+                (dstr (decode-coding-string (base64-decode-string \"$encoded\") 'utf-8)))
+            (insert dstr)
+            (when (boundp 'mxp-buffer-update-hook)
+              (run-hook-with-args 'mxp-buffer-update-hook \"$buffer_name\" start (point)))))" >/dev/null 2>&1 &
+      fi
+
+      accumulated_content=""
+      line_count=0
+      total_flushes=$((total_flushes + 1))
+    fi
+  }
+  
+  # Stream content in chunks with timeout-based flushing
+  local accumulated_content=""
+  local line_count=0
+  local total_flushes=0
+  local insert_point
+  if [ "$prepend" = "true" ]; then
+    insert_point="(point-min)"
+  else
+    insert_point="(point-max)"
+  fi
+  
+  local line
+  local read_status
+  
+  # Main reading loop with timeout-based flushing
+  while true; do
+    # Temporarily disable set -e for the read command
+    set +e
+    IFS= read -r -t $STREAM_TIMEOUT line
+    read_status=$?
+    set -e
+    
+    # Handle read result
+    # 0 = success, 1 = EOF, >128 = timeout
+    if [ $read_status -eq 0 ]; then
+      # Successfully read a line
+      accumulated_content+="$line"$'\n'
+      line_count=$((line_count + 1))
+      
+      # Flush if we've accumulated enough lines
+      if [ $line_count -ge $CHUNK_SIZE ]; then
+        flush_to_emacs
+      fi
+    elif [ $read_status -gt 128 ]; then
+      # Timeout - flush whatever we have and continue reading
+      flush_to_emacs
+    else
+      # EOF - handle last line without newline if it exists
+      if [ -n "$line" ]; then
+        accumulated_content+="$line"$'\n'
+        line_count=$((line_count + 1))
+      fi
+      # Flush remaining content and exit
+      flush_to_emacs
+      break
+    fi
+  done
+  
+  # Wait for all background jobs to complete
+  wait
+  
+  # Run hooks
+  emacsclient --eval "(with-current-buffer \"$buffer_name\"
+    (when (boundp 'mxp-buffer-hook)
+      (run-hook-with-args 'mxp-buffer-hook \"$buffer_name\"))
+    (when (boundp 'mxp-buffer-complete-hook)
+      (run-hook-with-args 'mxp-buffer-complete-hook \"$buffer_name\")))" > /dev/null 2>&1
+}
+main() {
+  local mode="write"
+  local buffer_pattern=""
+  local append="false"
+  local prepend="false"
+  local force="false"
+  
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -h|--help)
+        usage
+        ;;
+      -v|--version)
+        echo "mxp v${VERSION}"
+        exit 0
+        ;;
+      --update)
+        self_update
+        exit 0
+        ;;
+      -f|--from)
+        mode="read"
+        shift
+        buffer_pattern="$1"
+        ;;
+      -a|--append)
+        append="true"
+        ;;
+      -p|--prepend)
+        prepend="true"
+        ;;
+      -F|--force)
+        force="true"
+        ;;
+      -*)
+        die "Unknown option: $1"
+        ;;
+      *)
+        buffer_pattern="$1"
+        ;;
+    esac
+    shift
+  done
+  
+  # Determine mode if not explicitly set
+  # Check if stdin is a terminal (interactive use, no pipe)
+  if [ "$mode" = "write" ] && [ -t 0 ]; then
+    # No stdin pipe - check what the argument is
+    if [ -n "$buffer_pattern" ]; then
+      # Check if it's a file/directory path or buffer name
+      if is_path "$buffer_pattern"; then
+        mode="open"
+      else
+        mode="read"
+      fi
+    else
+      die "No input provided. Use --help for usage."
+    fi
+  fi
+  
+  # Validate flags
+  if [ "$append" = "true" ] && [ "$prepend" = "true" ]; then
+    die "Cannot use both --append and --prepend"
+  fi
+  
+  # Execute mode
+  if [ "$mode" = "read" ]; then
+    if [ -z "$buffer_pattern" ]; then
+      die "Buffer name or pattern required for reading. Use: mxp --from BUFFER"
+    fi
+    read_mode "$buffer_pattern"
+  elif [ "$mode" = "open" ]; then
+    open_mode "$buffer_pattern"
+  else
+    write_mode "$buffer_pattern" "$append" "$prepend" "$force"
+  fi
+}
+
+main "$@"
